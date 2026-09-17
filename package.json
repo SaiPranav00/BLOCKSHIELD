@@ -1,0 +1,18 @@
+{
+  "name": "sih26125-bloc-platform",
+  "version": "1.0.0",
+  "description": "SIH 2026 Hyperledger Fabric Blockchain & DID Platform",
+  "scripts": {
+    "menu": "./scripts/role-menu.sh",
+    "admin": "./scripts/role-menu.sh --role admin",
+    "manager": "./scripts/role-menu.sh --role manager",
+    "auditor": "./scripts/role-menu.sh --role auditor",
+    "user": "./scripts/role-menu.sh --role user",
+    "demo": "./scripts/demo-organization.sh",
+    "network:up": "./scripts/network-up.sh",
+    "network:down": "./scripts/network-down.sh",
+    "start:backend": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev"
+  }
+}
