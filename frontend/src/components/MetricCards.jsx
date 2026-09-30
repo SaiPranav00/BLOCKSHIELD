@@ -38,7 +38,7 @@ export default function MetricCards({ totalDIDs, totalNFTs, totalAudits, systemS
 
       {/* Metric 4: Platform Connection & Peer Latency */}
       <div className={`metric-card metric-status ${systemStatus.isOnline ? 'status-online' : 'status-offline'}`}>
-        <div className="metric-icon-box">{systemStatus.isOnline ? '⚡' : '⚠️'}</div>
+        <div className="metric-icon-box">{systemStatus.isOnline ? '🟢' : '⚠️'}</div>
         <div className="metric-details">
           <span className="metric-label">Fabric Peer Status</span>
           <h3 className="metric-value">{systemStatus.isOnline ? 'ONLINE' : 'OFFLINE'}</h3>

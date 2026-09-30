@@ -2,12 +2,13 @@ const { submitTransaction, evaluateTransaction } = require('../fabric/gateway');
 
 exports.mintNFT = async (req, res) => {
     try {
-        const { adminDID, tokenId, assetName, assetType, metadata } = req.body;
+        const { adminDID, tokenId, assetName, assetType, metadata, ownerDID, targetOwnerDID } = req.body;
         if (!adminDID || !tokenId || !assetName || !assetType) {
             return res.status(400).json({ success: false, error: 'Missing required fields: adminDID, tokenId, assetName, assetType' });
         }
+        const initialOwner = ownerDID || targetOwnerDID || '';
         const metaStr = typeof metadata === 'object' ? JSON.stringify(metadata) : (metadata || '{}');
-        const result = await submitTransaction('MintNFT', adminDID, tokenId, assetName, assetType, metaStr);
+        const result = await submitTransaction('MintNFT', adminDID, tokenId, assetName, assetType, metaStr, initialOwner);
         return res.status(201).json({ success: true, data: result });
     } catch (err) {
         return res.status(403).json({ success: false, error: err.message });

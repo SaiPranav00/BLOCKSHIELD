@@ -1,8 +1,14 @@
 // Pure REST API Service for Hyperledger Fabric Backend (No Hardcoded Fallbacks)
 
-const DEFAULT_BASE_URL = 'http://localhost:5000/api';
+const getDynamicBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:5000/api`;
+  }
+  return 'http://localhost:5000/api';
+};
 
-let currentApiUrl = DEFAULT_BASE_URL;
+let currentApiUrl = getDynamicBaseUrl();
 
 export const setApiBaseUrl = (url) => {
   currentApiUrl = url.endsWith('/') ? url.slice(0, -1) : url;

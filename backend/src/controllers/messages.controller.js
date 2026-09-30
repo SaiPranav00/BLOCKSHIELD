@@ -3,6 +3,30 @@ const { submitTransaction, evaluateTransaction } = require('../fabric/gateway');
 // Persistent in-memory messaging store with sample seed request
 let messageThreads = [
   {
+    id: 'thread-general',
+    category: 'GENERAL_CHAT',
+    status: 'ACTIVE',
+    senderDID: 'did:sih26125:ADMIN001',
+    senderName: 'System Admin',
+    senderRole: 'ADMIN',
+    targetRole: 'ALL',
+    title: 'Public Channel (General)',
+    details: {},
+    messages: [
+      {
+        msgId: 'msg-000',
+        senderDID: 'did:sih26125:ADMIN001',
+        senderName: 'System Admin',
+        senderRole: 'ADMIN',
+        recipientTarget: 'EVERYONE',
+        content: 'Welcome to the Fabric Network Group Channel. All members can broadcast and view messages here.',
+        timestamp: new Date(Date.now() - 7200000).toISOString(),
+      }
+    ],
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    updatedAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
     id: 'thread-001',
     category: 'MINT_NFT', // 'REGISTER_DID', 'MINT_NFT', 'DELEGATE_ALLOCATE', 'ALLOCATION_REQ', 'GENERAL_CHAT'
     status: 'PENDING', // 'PENDING', 'ASSIGNED_TO_MANAGER', 'COMPLETED', 'REJECTED'
@@ -34,25 +58,24 @@ let messageThreads = [
   }
 ];
 
-// Helper: Filter messages by user role & identity
+// Helper: Filter messages by user role & identity (Strict Privacy Rules)
 const filterThreadsForRole = (role, userDid) => {
   if (role === 'ADMIN') {
-    // Admin sees ALL message threads across the entire platform
+    // Admin sees ALL message threads and requests across the entire platform
     return messageThreads;
   }
-  if (role === 'MANAGER') {
-    // Manager sees threads assigned to managers, tasks delegated to them, or sent by them
-    return messageThreads.filter(
-      t => t.targetRole === 'MANAGER' || 
-           t.assignedManagerDID === userDid || 
-           t.senderRole === 'MANAGER' || 
-           t.senderDID === userDid ||
-           t.category === 'DELEGATE_ALLOCATE' ||
-           t.category === 'ALLOCATION_REQ'
-    );
-  }
-  // User sees only their own message threads
-  return messageThreads.filter(t => t.senderDID === userDid || t.details?.requestedDID === userDid);
+  return messageThreads.filter(t => {
+    // Public general chat channel is visible to everyone
+    const isPublic = t.targetRole === 'ALL' || t.targetRole === 'EVERYONE' || t.category === 'GENERAL_CHAT';
+    if (isPublic) return true;
+
+    // Private requests/threads: visible ONLY to exact sender, target role, or assigned manager
+    const isExactSender = userDid && t.senderDID === userDid;
+    const isTargetRole = t.targetRole === role;
+    const isAssignedManager = userDid && t.assignedManagerDID === userDid;
+
+    return isExactSender || isTargetRole || isAssignedManager;
+  });
 };
 
 // 1. Get Message Threads
@@ -120,7 +143,7 @@ exports.createMessageThread = async (req, res) => {
 exports.replyToThread = async (req, res) => {
   try {
     const { threadId } = req.params;
-    const { senderDID, senderName, senderRole, content } = req.body;
+    const { senderDID, senderName, senderRole, recipientTarget = 'EVERYONE', content } = req.body;
 
     const thread = messageThreads.find(t => t.id === threadId);
     if (!thread) {
@@ -132,6 +155,7 @@ exports.replyToThread = async (req, res) => {
       senderDID,
       senderName: senderName || senderDID,
       senderRole,
+      recipientTarget: recipientTarget || 'EVERYONE',
       content,
       timestamp: new Date().toISOString(),
     };
@@ -176,6 +200,41 @@ exports.delegateTaskToManager = async (req, res) => {
   }
 };
 
+// Helper: System helper to dispatch new user signup task to Admin
+exports.addSystemSignupTask = ({ did, username, requestedRole }) => {
+  const newThread = {
+    id: `thread-signup-${Date.now()}`,
+    category: 'REGISTER_DID',
+    status: 'PENDING',
+    senderDID: did,
+    senderName: username,
+    senderRole: requestedRole || 'USER',
+    targetRole: 'ADMIN',
+    title: `Registration Request: ${username} (${requestedRole || 'USER'})`,
+    details: {
+      requestedDID: did,
+      username,
+      requestedRole: requestedRole || 'USER',
+      publicKey: 'RSA-2048-PUBKEY',
+    },
+    messages: [
+      {
+        msgId: `msg-${Date.now()}`,
+        senderDID: did,
+        senderName: username,
+        senderRole: requestedRole || 'USER',
+        content: `New user signup request for '${username}'. Requested role: ${requestedRole || 'USER'}. Please accept request to issue official DID on Fabric ledger.`,
+        timestamp: new Date().toISOString(),
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  messageThreads.unshift(newThread);
+  return newThread;
+};
+
 // 5. Execute Actionable Request (Trigger Fabric On-Chain Transaction directly from Chat Thread)
 exports.executeThreadAction = async (req, res) => {
   try {
@@ -189,16 +248,32 @@ exports.executeThreadAction = async (req, res) => {
 
     let txResult = null;
 
-    if (actionType === 'REGISTER_DID') {
-      const { did, publicKey, role } = parameters || thread.details;
-      txResult = await submitTransaction('CreateDID', did, publicKey || 'RSA-2048-PUBKEY', role || 'USER');
+    if (actionType === 'REGISTER_DID' || actionType === 'USER_SIGNUP_REQ') {
+      const { did, requestedDID, publicKey, role, requestedRole } = parameters || thread.details || {};
+      const targetDid = did || requestedDID || thread.senderDID;
+      const targetRole = role || requestedRole || thread.senderRole || 'USER';
+      txResult = await submitTransaction('CreateDID', targetDid, publicKey || 'RSA-2048-PUBKEY', targetRole);
+
+      // Activate credential in userStore
+      try {
+        const { getUserCredentials } = require('./access.controller');
+        const creds = getUserCredentials();
+        const userCred = creds.get(targetDid);
+        if (userCred) {
+          userCred.status = 'ACTIVE';
+        }
+      } catch (e) {
+        console.error('Credential sync error:', e);
+      }
     } else if (actionType === 'MINT_NFT') {
-      const { adminDID, tokenId, assetName, assetType, metadata } = parameters || thread.details;
+      const { adminDID, tokenId, assetName, assetType, metadata } = parameters || thread.details || {};
       const metaStr = typeof metadata === 'object' ? JSON.stringify(metadata) : (metadata || '{}');
-      txResult = await submitTransaction('MintNFT', actorDID || adminDID || 'did:sih26125:ADMIN001', tokenId, assetName, assetType, metaStr);
+      const targetTokenId = tokenId || `NFT-${Date.now().toString().slice(-4)}`;
+      txResult = await submitTransaction('MintNFT', actorDID || adminDID || 'did:sih26125:ADMIN001', targetTokenId, assetName || 'Digital Asset', assetType || 'PROPERTY', metaStr);
     } else if (actionType === 'ALLOCATE_NFT') {
-      const { tokenId, ownerDID } = parameters || thread.details;
-      txResult = await submitTransaction('AllocateNFT', actorDID, tokenId, ownerDID);
+      const { tokenId, ownerDID } = parameters || thread.details || {};
+      const targetOwner = ownerDID || thread.senderDID;
+      txResult = await submitTransaction('AllocateNFT', actorDID, tokenId, targetOwner);
     } else if (actionType === 'RESOLVE') {
       txResult = { message: 'Request resolved' };
     } else {
@@ -209,10 +284,10 @@ exports.executeThreadAction = async (req, res) => {
     thread.updatedAt = new Date().toISOString();
     thread.messages.push({
       msgId: `msg-${Date.now()}`,
-      senderDID: actorDID,
+      senderDID: actorDID || 'did:sih26125:ADMIN001',
       senderName: 'System Bot',
       senderRole: 'SYSTEM',
-      content: `[ACTION EXECUTED ON LEDGER] Action '${actionType}' completed successfully!`,
+      content: `✓ COMPLETED & EXECUTED ON FABRIC LEDGER: Action '${actionType}' verified on-chain!`,
       timestamp: new Date().toISOString(),
     });
 

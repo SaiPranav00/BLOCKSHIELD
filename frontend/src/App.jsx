@@ -13,10 +13,26 @@ import { checkHealth, getNFTHistory, getAllDIDs, getAllNFTs, getAuditLogs, getMe
 import './App.css';
 
 function App() {
+  // Auto-detect port assignment for dedicated role hosting:
+  // Port 5174 -> Admin, Port 5175 -> Manager, Port 5176 -> Auditor, Port 5173 -> General/Portal
+  const initialPort = typeof window !== 'undefined' ? (window.location.port || '5173') : '5173';
+  const initialView = initialPort === '5174' ? 'ADMIN'
+    : initialPort === '5175' ? 'MANAGER'
+    : initialPort === '5176' ? 'AUDITOR'
+    : 'PORTAL';
+  const initialRole = initialPort === '5174' ? 'ADMIN'
+    : initialPort === '5175' ? 'MANAGER'
+    : initialPort === '5176' ? 'AUDITOR'
+    : 'USER';
+  const initialDID = initialPort === '5174' ? 'did:sih26125:ADMIN001'
+    : initialPort === '5175' ? 'did:sih26125:MANAGER001'
+    : initialPort === '5176' ? 'did:sih26125:AUDITOR001'
+    : 'did:sih26125:USER001';
+
   // Navigation View State: 'PORTAL' (Central Landing) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
-  const [currentView, setCurrentView] = useState('PORTAL');
-  const [activeRole, setActiveRole] = useState('ADMIN');
-  const [activeDID, setActiveDID] = useState('did:sih26125:ADMIN001');
+  const [currentView, setCurrentView] = useState(initialView);
+  const [activeRole, setActiveRole] = useState(initialRole);
+  const [activeDID, setActiveDID] = useState(initialDID);
 
   // Authenticated User Session
   const [authUser, setAuthUser] = useState(null);
@@ -147,23 +163,21 @@ function App() {
       {/* Toast Alert Notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Header Bar (Shown only inside dedicated role portals) */}
-      {currentView !== 'PORTAL' && (
-        <Header
-          systemStatus={systemStatus}
-          activeRole={activeRole}
-          currentView={currentView}
-          onReturnHome={handleReturnHome}
-          onOpenCommChannel={() => setShowCommChannel(true)}
-          authUser={authUser}
-          onLogout={handleLogout}
-          unreadCount={unreadCount}
-        />
-      )}
+      {/* Global Header Bar */}
+      <Header
+        systemStatus={systemStatus}
+        activeRole={activeRole}
+        currentView={currentView}
+        onReturnHome={handleReturnHome}
+        onOpenCommChannel={() => setShowCommChannel(true)}
+        authUser={authUser}
+        onLogout={handleLogout}
+        unreadCount={unreadCount}
+      />
 
       {/* Main Viewport */}
       <main className="main-viewport">
-        {/* VIEW 1: Central Portal Landing Page */}
+        {/* VIEW 1: Central Portal Landing Page (4 Portals: Admin, Manager, Auditor, User) */}
         {currentView === 'PORTAL' && (
           <CentralPortal
             metrics={metrics}
@@ -172,7 +186,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 2: Dedicated Admin Page */}
+        {/* VIEW 2: Dedicated Admin Portal Page */}
         {currentView === 'ADMIN' && (
           <AdminView
             activeDID={activeDID}
@@ -182,7 +196,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 3: Dedicated Manager Page */}
+        {/* VIEW 3: Dedicated Manager Portal Page */}
         {currentView === 'MANAGER' && (
           <ManagerView
             activeDID={activeDID}
@@ -191,7 +205,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 4: Dedicated Auditor Page */}
+        {/* VIEW 4: Dedicated Auditor Portal Page */}
         {currentView === 'AUDITOR' && (
           <AuditorView
             notify={showToast}
@@ -199,7 +213,7 @@ function App() {
           />
         )}
 
-        {/* VIEW 5: Dedicated User Page */}
+        {/* VIEW 5: Dedicated User Portal Page */}
         {currentView === 'USER' && (
           <UserView
             activeDID={activeDID}
@@ -209,7 +223,7 @@ function App() {
         )}
       </main>
 
-      {/* Communication & Task Dispatch Channel Drawer / Modal */}
+      {/* Communication & Task Dispatch Channel Modal */}
       {showCommChannel && (
         <CommunicationChannel
           activeRole={activeRole}
@@ -241,4 +255,3 @@ function App() {
 }
 
 export default App;
-

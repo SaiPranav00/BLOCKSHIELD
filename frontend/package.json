@@ -4,7 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host --port 5173",
+    "dev:users": "vite --host --port 5173",
+    "dev:admin": "vite --host --port 5174",
+    "dev:manager": "vite --host --port 5175",
+    "dev:auditor": "vite --host --port 5176",
+    "admin": "vite --host --port 5174",
+    "manager": "vite --host --port 5175",
+    "auditor": "vite --host --port 5176",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -18,6 +25,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "playwright": "^1.63.0",
     "vite": "^8.2.2"
   }
 }

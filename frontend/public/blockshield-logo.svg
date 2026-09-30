@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 683" role="img" aria-labelledby="title description">
+  <title id="title">BlockShield</title>
+  <desc id="description">Blue BlockShield wordmark with a shield containing linked blocks.</desc>
+  <defs>
+    <linearGradient id="signal-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#08b5f4" />
+      <stop offset="1" stop-color="#0088df" />
+    </linearGradient>
+    <linearGradient id="shield-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#123d7d" />
+      <stop offset="1" stop-color="#071f55" />
+    </linearGradient>
+    <linearGradient id="wordmark-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#08aff0" />
+      <stop offset="0.46" stop-color="#0789d6" />
+      <stop offset="0.54" stop-color="#103e7d" />
+      <stop offset="1" stop-color="#09285e" />
+    </linearGradient>
+  </defs>
+  <g aria-hidden="true">
+    <path fill="url(#signal-blue)" d="M312 128 701 123q20 0 31-5 7-2 5 6l-11 22q-3 6-9 10l-15 11q-7 5-11 12l-18 31q-4 8-13 8H540q9-31 0-51-12-24-44-24H311q-8 0-5-7l4-7q1-1 2-1Z" />
+    <path fill="url(#signal-blue)" d="M231 285h226q39 0 70-42h126q7 0 3 7l-48 77q-4 8-13 8H472q-3-20-16-27-11-7-31-7H231q-8 0-5-7l3-6q1-3 2-3Z" />
+    <path fill="url(#signal-blue)" d="M198 432h181q61 0 87-69h173q8 0 4 7l-47 73q-4 7-12 7H194q-8 0-4-8l4-7q1-3 4-3Z" />
+    <path fill="url(#shield-blue)" d="M750 118q68 39 161 60 5 143-47 228-39 62-147 108l-1-35q95-54 128-110 43-72 33-163-70-17-128-55Z" />
+    <path fill="url(#signal-blue)" d="m750 155-15 18q47 29 127 51-3 84-30 137-27 54-87 91l-39 24q-8 5-3 12l4 5 57-35q68-42 98-100 33-64 32-153-85-22-144-50Z" />
+    <path fill="none" stroke="#082859" stroke-linecap="square" stroke-width="12" d="m760 235 18 34m4 61-57 39" />
+    <g stroke="#fff" stroke-linejoin="round" stroke-width="8">
+      <path fill="#173c76" d="m746 157 43 23-43 25-43-24Z" />
+      <path fill="#0c2d68" d="m703 181 43 24v45l-43-24Z" />
+      <path fill="#12366f" d="m746 205 43-25v45l-43 25Z" />
+      <path fill="#173c76" d="m783 267 42 23-43 25-42-24Z" />
+      <path fill="#0c2d68" d="m740 291 42 24v45l-42-24Z" />
+      <path fill="#12366f" d="m782 315 43-25v45l-43 25Z" />
+      <path fill="#173c76" d="m697 354 43 24-44 25-43-24Z" />
+      <path fill="#0c2d68" d="m653 379 43 24v45l-43-24Z" />
+      <path fill="#12366f" d="m696 403 44-25v45l-44 25Z" />
+    </g>
+  </g>
+  <text x="92" y="633" fill="url(#wordmark-blue)" font-family="Arial Black, DM Sans, Arial, sans-serif" font-size="126" font-weight="900" letter-spacing="-5" textLength="873" lengthAdjust="spacingAndGlyphs">BLOCKSHIELD</text>
+</svg>

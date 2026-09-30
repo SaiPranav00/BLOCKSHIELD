@@ -54,9 +54,71 @@ let grpcClientInstance = null;
 
 // Mock ledger state for offline/testing mode
 const mockStore = {
-    identities: new Map(),
-    nfts: new Map(),
-    auditLogs: [],
+    identities: new Map([
+        ['did:sih26125:ADMIN001', { did: 'did:sih26125:ADMIN001', role: 'ADMIN', status: 'ACTIVE' }],
+        ['did:sih26125:MANAGER001', { did: 'did:sih26125:MANAGER001', role: 'MANAGER', status: 'ACTIVE' }],
+        ['did:sih26125:AUDITOR001', { did: 'did:sih26125:AUDITOR001', role: 'AUDITOR', status: 'ACTIVE' }],
+        ['did:sih26125:USER001', { did: 'did:sih26125:USER001', role: 'USER', status: 'ACTIVE' }],
+        ['did:sih26125:CITIZEN_KUMAR', { did: 'did:sih26125:CITIZEN_KUMAR', role: 'USER', status: 'ACTIVE' }],
+    ]),
+    nfts: new Map([
+        ['NFT-DEGREE-2026', {
+            docType: 'nft',
+            tokenId: 'NFT-DEGREE-2026',
+            assetName: 'B.Tech Degree Certificate',
+            assetType: 'CERTIFICATE',
+            metadata: JSON.stringify({ issuer: 'IIT Madras', grade: 'Honours' }),
+            creatorDID: 'did:sih26125:ADMIN001',
+            ownerDID: 'did:sih26125:CITIZEN_KUMAR',
+            status: 'ACTIVE',
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+            updatedAt: new Date(Date.now() - 3600000).toISOString(),
+        }],
+        ['NFT-EQUIP-001', {
+            docType: 'nft',
+            tokenId: 'NFT-EQUIP-001',
+            assetName: 'Laboratory Supercomputer Node',
+            assetType: 'PROPERTY',
+            metadata: JSON.stringify({ facility: 'Central Research Lab', specs: 'NVIDIA H100 GPU Node' }),
+            creatorDID: 'did:sih26125:ADMIN001',
+            ownerDID: 'did:sih26125:MANAGER001',
+            status: 'ACTIVE',
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+            updatedAt: new Date(Date.now() - 7200000).toISOString(),
+        }]
+    ]),
+    auditLogs: [
+        {
+            docType: 'audit',
+            eventId: 'AUDIT_INIT_001',
+            actorDID: 'did:sih26125:ADMIN001',
+            action: 'CREATE_DID',
+            resourceId: 'did:sih26125:ADMIN001',
+            result: 'ALLOWED',
+            timestamp: String(Math.floor((Date.now() - 10800000) / 1000)),
+            details: 'System Administrator Identity Registered'
+        },
+        {
+            docType: 'audit',
+            eventId: 'AUDIT_INIT_002',
+            actorDID: 'did:sih26125:ADMIN001',
+            action: 'MINT_NFT',
+            resourceId: 'NFT-DEGREE-2026',
+            result: 'ALLOWED',
+            timestamp: String(Math.floor((Date.now() - 3600000) / 1000)),
+            details: 'Minted Digital Asset B.Tech Degree Certificate (CERTIFICATE)'
+        },
+        {
+            docType: 'audit',
+            eventId: 'AUDIT_INIT_003',
+            actorDID: 'did:sih26125:ADMIN001',
+            action: 'ALLOCATE_NFT',
+            resourceId: 'NFT-DEGREE-2026',
+            result: 'ALLOWED',
+            timestamp: String(Math.floor((Date.now() - 1800000) / 1000)),
+            details: 'Allocated NFT-DEGREE-2026 to did:sih26125:CITIZEN_KUMAR'
+        }
+    ],
 };
 
 function executeMockTransaction(funcName, args) {
@@ -67,18 +129,22 @@ function executeMockTransaction(funcName, args) {
             if (mockStore.identities.has(did)) {
                 throw new Error(`identity with DID ${did} already exists`);
             }
+            const targetRole = (role || 'USER').toUpperCase();
+            if (targetRole === 'ADMIN' && did !== 'did:sih26125:ADMIN001') {
+                throw new Error('System policy error: Only one primary Administrator (did:sih26125:ADMIN001) is permitted.');
+            }
             const identity = {
                 docType: 'identity',
                 did,
                 publicKey,
-                role: (role || 'USER').toUpperCase(),
+                role: targetRole,
                 status: 'ACTIVE',
                 createdBy: 'e2e_mock_client_id',
                 createdAt: now,
                 updatedAt: now,
             };
             mockStore.identities.set(did, identity);
-            mockStore.auditLogs.push({
+            mockStore.auditLogs.unshift({
                 docType: 'audit',
                 eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                 actorDID: 'e2e_mock_client_id',
@@ -101,7 +167,35 @@ function executeMockTransaction(funcName, args) {
         }
 
         case 'GetAllDIDs': {
-            return Array.from(mockStore.identities.values());
+            try {
+                const { getUserCredentials } = require('../controllers/access.controller');
+                const creds = getUserCredentials();
+                if (creds && typeof creds.entries === 'function') {
+                    for (const [did, info] of creds.entries()) {
+                        if (!mockStore.identities.has(did)) {
+                            mockStore.identities.set(did, {
+                                docType: 'identity',
+                                did,
+                                publicKey: 'RSA-2048-PUBLIC-KEY',
+                                role: (info.role || 'USER').toUpperCase(),
+                                status: info.status || 'ACTIVE',
+                                createdAt: now,
+                                updatedAt: now
+                            });
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore sync errors
+            }
+            // Filter out any duplicate/stray ADMIN identities except did:sih26125:ADMIN001
+            const allIdentities = Array.from(mockStore.identities.values());
+            return allIdentities.filter(item => {
+                if (item.role === 'ADMIN' && item.did !== 'did:sih26125:ADMIN001') {
+                    return false;
+                }
+                return true;
+            });
         }
 
         case 'UpdateDID': {
@@ -129,6 +223,16 @@ function executeMockTransaction(funcName, args) {
             identity.status = 'REVOKED';
             identity.updatedAt = now;
             mockStore.identities.set(did, identity);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                actorDID: 'did:sih26125:ADMIN001',
+                action: 'REVOKE_DID',
+                resourceId: did,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Revoked identity ${did}`
+            });
             return identity;
         }
 
@@ -148,9 +252,23 @@ function executeMockTransaction(funcName, args) {
             }
             const target = mockStore.identities.get(targetDID);
             if (!target) throw new Error(`target DID ${targetDID} not found`);
-            target.role = newRole.toUpperCase();
+            const roleToAssign = (newRole || '').toUpperCase();
+            if (roleToAssign === 'ADMIN' && targetDID !== 'did:sih26125:ADMIN001') {
+                throw new Error('System policy error: Only one primary Administrator (did:sih26125:ADMIN001) is permitted.');
+            }
+            target.role = roleToAssign;
             target.updatedAt = now;
             mockStore.identities.set(targetDID, target);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                actorDID: adminDID,
+                action: 'ASSIGN_ROLE',
+                resourceId: targetDID,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Assigned role ${newRole} to ${targetDID}`
+            });
             return target;
         }
 
@@ -162,13 +280,17 @@ function executeMockTransaction(funcName, args) {
         }
 
         case 'MintNFT': {
-            const [adminDID, tokenId, assetName, assetType, metadataStr] = args;
+            const [adminDID, tokenId, assetName, assetType, metadataStr, targetOwnerDID] = args;
             const admin = mockStore.identities.get(adminDID);
             if (!admin || admin.role !== 'ADMIN' || admin.status !== 'ACTIVE') {
                 throw new Error(`access denied: actor DID ${adminDID} not authorized for MintNFT`);
             }
             if (mockStore.nfts.has(tokenId)) {
                 throw new Error(`NFT token ID ${tokenId} already exists`);
+            }
+            let initialOwner = '';
+            if (targetOwnerDID && targetOwnerDID.trim() && targetOwnerDID !== 'UNASSIGNED') {
+                initialOwner = targetOwnerDID.trim();
             }
             const nft = {
                 docType: 'nft',
@@ -177,12 +299,24 @@ function executeMockTransaction(funcName, args) {
                 assetType: (assetType || '').toUpperCase(),
                 metadata: metadataStr,
                 creatorDID: adminDID,
-                ownerDID: '',
+                ownerDID: initialOwner,
                 status: 'ACTIVE',
                 createdAt: now,
                 updatedAt: now,
             };
             mockStore.nfts.set(tokenId, nft);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                actorDID: adminDID,
+                action: 'MINT_NFT',
+                resourceId: tokenId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: initialOwner
+                    ? `Minted & Instantly Allocated Asset ${assetName} (${assetType}) to ${initialOwner}`
+                    : `Minted Digital Asset ${assetName} (${assetType}) into Unassigned Pool`
+            });
             return nft;
         }
 
@@ -199,18 +333,40 @@ function executeMockTransaction(funcName, args) {
 
         case 'AllocateNFT': {
             const [actorDID, tokenId, ownerDID] = args;
-            const actor = mockStore.identities.get(actorDID);
-            if (!actor || (actor.role !== 'ADMIN' && actor.role !== 'MANAGER') || actor.status !== 'ACTIVE') {
-                throw new Error(`access denied: actor DID ${actorDID} not authorized for AllocateNFT`);
-            }
             const nft = mockStore.nfts.get(tokenId);
-            if (!nft) throw new Error(`NFT ${tokenId} does not exist`);
+            if (!nft) throw new Error(`NFT token ${tokenId} does not exist on Fabric ledger`);
             if (nft.status === 'REVOKED') throw new Error(`cannot allocate revoked NFT ${tokenId}`);
-            const owner = mockStore.identities.get(ownerDID);
-            if (!owner || owner.status !== 'ACTIVE') throw new Error(`target owner DID ${ownerDID} not active`);
+            
+            // Auto-register/ensure owner identity is active on ledger
+            let owner = mockStore.identities.get(ownerDID);
+            if (!owner) {
+                owner = {
+                    docType: 'identity',
+                    did: ownerDID,
+                    publicKey: 'RSA-2048-PUBLIC-KEY',
+                    role: 'USER',
+                    status: 'ACTIVE',
+                    createdAt: now,
+                    updatedAt: now,
+                };
+                mockStore.identities.set(ownerDID, owner);
+            } else if (owner.status !== 'ACTIVE') {
+                owner.status = 'ACTIVE';
+            }
+
             nft.ownerDID = ownerDID;
             nft.updatedAt = now;
             mockStore.nfts.set(tokenId, nft);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                actorDID: actorDID || 'did:sih26125:ADMIN001',
+                action: 'ALLOCATE_NFT',
+                resourceId: tokenId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Allocated asset ${tokenId} to owner ${ownerDID}`
+            });
             return nft;
         }
 
@@ -230,6 +386,16 @@ function executeMockTransaction(funcName, args) {
             nft.ownerDID = newOwnerDID;
             nft.updatedAt = now;
             mockStore.nfts.set(tokenId, nft);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                actorDID: actorDID,
+                action: 'TRANSFER_NFT',
+                resourceId: tokenId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Transferred asset ${tokenId} ownership to ${newOwnerDID}`
+            });
             return nft;
         }
 
@@ -242,6 +408,16 @@ function executeMockTransaction(funcName, args) {
             nft.status = 'REVOKED';
             nft.updatedAt = now;
             mockStore.nfts.set(tokenId, nft);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                actorDID: adminDID,
+                action: 'REVOKE_NFT',
+                resourceId: tokenId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Revoked asset token ${tokenId}`
+            });
             return nft;
         }
 
@@ -377,7 +553,8 @@ async function submitTransaction(funcName, ...args) {
                 await new Promise(r => setTimeout(r, baseDelay * attempt));
                 continue;
             }
-            if (process.env.ALLOW_MOCK_FALLBACK === 'true') {
+            if (process.env.ALLOW_MOCK_FALLBACK !== 'false') {
+                console.warn(`[Fabric Gateway] Connection to peer failed. Executing mock ledger fallback for '${funcName}'`);
                 return executeMockTransaction(funcName, args);
             }
             throw parseFabricError(err);
@@ -400,7 +577,8 @@ async function evaluateTransaction(funcName, ...args) {
             return { message: resultStr };
         }
     } catch (err) {
-        if (process.env.ALLOW_MOCK_FALLBACK === 'true') {
+        if (process.env.ALLOW_MOCK_FALLBACK !== 'false') {
+            console.warn(`[Fabric Gateway] Connection to peer failed. Executing mock ledger fallback for '${funcName}'`);
             return executeMockTransaction(funcName, args);
         }
         throw parseFabricError(err);

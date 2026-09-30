@@ -38,6 +38,7 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
   const [mintAssetName, setMintAssetName] = useState('');
   const [mintAssetType, setMintAssetType] = useState('CERTIFICATE');
   const [mintMetadata, setMintMetadata] = useState('{"issuer":"IIT Madras","classification":"VERIFIED"}');
+  const [mintTargetOwnerDid, setMintTargetOwnerDid] = useState('');
 
   const [allocTokenId, setAllocTokenId] = useState('');
   const [allocOwnerDid, setAllocOwnerDid] = useState('');
@@ -191,10 +192,15 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
         assetName: mintAssetName.trim(),
         assetType: mintAssetType,
         metadata: parsedMeta,
+        ownerDID: mintTargetOwnerDid,
       });
-      notify(`Digital Asset ${cleanTokenId} minted on Fabric ledger!`, 'success');
+      const successMsg = mintTargetOwnerDid
+        ? `Digital Asset ${cleanTokenId} minted & instantly allocated to ${mintTargetOwnerDid}!`
+        : `Digital Asset ${cleanTokenId} minted as unassigned pool asset on Fabric!`;
+      notify(successMsg, 'success');
       setMintTokenId('');
       setMintAssetName('');
+      setMintTargetOwnerDid('');
       refreshData();
     } catch (err) {
       const errMsg = err.message || '';
@@ -294,10 +300,12 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
     }
   };
 
-  const filteredDIDs = didsList.filter(item =>
-    (item.did || '').toLowerCase().includes(didSearchQuery.toLowerCase()) ||
-    (item.role || '').toLowerCase().includes(didSearchQuery.toLowerCase())
-  );
+  const filteredDIDs = didsList
+    .filter(item => !(item.role === 'ADMIN' && item.did !== 'did:sih26125:ADMIN001'))
+    .filter(item =>
+      (item.did || '').toLowerCase().includes(didSearchQuery.toLowerCase()) ||
+      (item.role || '').toLowerCase().includes(didSearchQuery.toLowerCase())
+    );
 
   const filteredNFTs = nftsList.filter(item =>
     (item.tokenId || '').toLowerCase().includes(nftSearchQuery.toLowerCase()) ||
@@ -383,15 +391,15 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
                 <div className="form-group">
                   <label className="label">Assigned Role:</label>
                   <select
-                    className="input"
+                    className="input styled-select"
                     value={newRoleInput}
                     onChange={(e) => setNewRoleInput(e.target.value)}
                   >
                     <option value="USER">USER (Standard Citizen / Client)</option>
                     <option value="MANAGER">MANAGER (Asset Allocator / Verifier)</option>
                     <option value="AUDITOR">AUDITOR (Compliance Inspector)</option>
-                    <option value="ADMIN">ADMIN (System Administrator)</option>
                   </select>
+                  <p className="text-xs text-muted mt-1">Note: Primary System Administrator is pre-provisioned (<code>did:sih26125:ADMIN001</code>).</p>
                 </div>
 
                 <div className="form-group">
@@ -466,6 +474,10 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
                           <td>
                             {item.status === 'REVOKED' ? (
                               <span className="text-muted text-xs">REVOKED</span>
+                            ) : item.role === 'ADMIN' ? (
+                              <span className="text-muted text-xs font-mono font-bold text-muted" title="Admin role is protected and cannot be changed">
+                                🔒 ADMIN (Protected)
+                              </span>
                             ) : (
                               <select
                                 className="select select-xs"
@@ -475,7 +487,6 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
                                 <option value="USER">USER</option>
                                 <option value="MANAGER">MANAGER</option>
                                 <option value="AUDITOR">AUDITOR</option>
-                                <option value="ADMIN">ADMIN</option>
                               </select>
                             )}
                           </td>
@@ -574,6 +585,23 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
                     <option value="PATENT">PATENT / INTELLECTUAL PROPERTY</option>
                     <option value="LICENSE">OFFICIAL LICENSE</option>
                   </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="label">Target Owner DID (Optional Instant Allocation):</label>
+                  <select
+                    className="input"
+                    value={mintTargetOwnerDid}
+                    onChange={(e) => setMintTargetOwnerDid(e.target.value)}
+                  >
+                    <option value="">-- Mint as Unassigned Pool Asset --</option>
+                    {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
+                      <option key={idx} value={d.did}>
+                        {d.did} [{d.role}]
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted mt-1">Select user to allocate instantly upon minting, or leave blank to mint into unassigned inventory pool.</p>
                 </div>
 
                 <div className="form-group">

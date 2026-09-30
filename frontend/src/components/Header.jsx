@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import blockshieldLogo from '../assets/blockshield-logo.svg';
 
 export default function Header({
   systemStatus,
@@ -11,71 +12,88 @@ export default function Header({
   unreadCount = 0,
 }) {
   const roleBadges = {
-    ADMIN: { label: 'Admin Portal', color: 'badge-admin' },
-    MANAGER: { label: 'Manager Portal', color: 'badge-manager' },
-    AUDITOR: { label: 'Auditor Portal', color: 'badge-auditor' },
-    USER: { label: 'User Portal', color: 'badge-user' },
+    ADMIN: { label: 'Admin Workspace', color: 'badge-admin' },
+    MANAGER: { label: 'Manager Workspace', color: 'badge-manager' },
+    AUDITOR: { label: 'Auditor Workspace', color: 'badge-auditor' },
+    USER: { label: 'User Workspace', color: 'badge-user' },
   };
 
   const currentBadge = roleBadges[activeRole] || roleBadges.USER;
   const isDedicatedPage = currentView !== 'PORTAL';
 
+  const currentPort = typeof window !== 'undefined' ? (window.location.port || '80') : '5173';
+  const getPortLabel = (port) => {
+    if (port === '5174') return 'Port 5174 (Admin)';
+    if (port === '5175') return 'Port 5175 (Manager)';
+    if (port === '5176') return 'Port 5176 (Auditor)';
+    return `Port ${port}`;
+  };
+
   return (
     <header className="app-header">
       <div className="header-brand">
-        {isDedicatedPage && (
-          <button className="btn btn-secondary btn-sm mr-3" onClick={onReturnHome} title="Return to Role Selection">
-            &larr; Back to Roles
-          </button>
-        )}
-
-        <div>
-          <h1 className="brand-title">SIH 2026 Platform</h1>
-          <p className="brand-subtitle">Hyperledger Fabric Ledger & DID System</p>
+        <div className="brand-logo-lockup" onClick={onReturnHome} style={{ cursor: 'pointer' }} title="Return to Role Selection Portal">
+          <img src={blockshieldLogo} alt="BlockShield Logo" className="brand-logo-img" />
+          <div className="brand-text-wrapper">
+            <h1 className="brand-title">BlockShield Platform</h1>
+            <p className="brand-subtitle">Hyperledger Fabric Ledger &amp; DID System</p>
+          </div>
         </div>
       </div>
 
       <div className="header-meta">
+        {/* Server Port Indicator Badge */}
+        <div className="port-badge-indicator" title={`Serving on network port ${currentPort}`}>
+          <span className="port-dot"></span>
+          <span className="port-text">{getPortLabel(currentPort)}</span>
+        </div>
+
+        {/* Network Status Indicator */}
         <div className={`status-indicator ${systemStatus.isOnline ? 'online' : 'offline'}`}>
-          <span className="status-dot-static"></span>
+          <span className="pulse-dot"></span>
+          <span className="pulse-ring"></span>
           <span className="status-label">
-            {systemStatus.isOnline ? `Fabric Online (${systemStatus.latency || 12}ms)` : 'Offline'}
+            {systemStatus.isOnline
+              ? `Fabric Online (${systemStatus.latency || 14}ms)`
+              : 'Ledger Offline'}
           </span>
         </div>
 
-        {/* Communication Hub Button */}
+        {/* Communication Channel Button */}
         {isDedicatedPage && (
           <button
-            className="btn btn-sm btn-outline btn-comm-hub"
+            className="btn-comm-hub"
             onClick={onOpenCommChannel}
             title="Open Role Communication Channel"
           >
-            <span>Messages & Tasks</span>
+            <span>Messages &amp; Tasks</span>
             {unreadCount > 0 && (
               <span className="badge-unread-count">{unreadCount}</span>
             )}
           </button>
         )}
 
-        {authUser && (
-          <div className="flex-gap align-center ml-2">
-            <span className="text-xs text-muted font-mono">
-              {authUser.username || authUser.did} <span className={`role-pill role-${(authUser.role || 'USER').toLowerCase()}`}>{authUser.role}</span>
+        {/* Auth User Session Pill */}
+        {authUser ? (
+          <div className="user-session-box">
+            <span className="user-did-label">
+              {authUser.username || authUser.did}
             </span>
-            <button className="btn btn-xs btn-outline" onClick={onLogout} title="Log Out">
-              Log Out
+            <span className={`role-pill role-${(authUser.role || 'USER').toLowerCase()}`}>
+              {authUser.role}
+            </span>
+            <button className="btn-logout" onClick={onLogout} title="Sign Out">
+              Sign Out
             </button>
           </div>
-        )}
-
-        {isDedicatedPage && !authUser && (
-          <div className={`role-badge ${currentBadge.color}`}>
-            {currentBadge.label}
-          </div>
+        ) : (
+          isDedicatedPage && (
+            <div className={`role-badge ${currentBadge.color}`}>
+              {currentBadge.label}
+            </div>
+          )
         )}
       </div>
     </header>
   );
 }
-
-
