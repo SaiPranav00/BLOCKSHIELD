@@ -59,8 +59,8 @@ export default function Header({
           </span>
         </div>
 
-        {/* Communication Channel Button */}
-        {isDedicatedPage && (
+        {/* Communication Channel Button (Only accessible after login) */}
+        {authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING' && (
           <button
             className="btn-comm-hub"
             onClick={onOpenCommChannel}

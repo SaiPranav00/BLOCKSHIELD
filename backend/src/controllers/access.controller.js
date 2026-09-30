@@ -123,6 +123,13 @@ exports.registerUser = async (req, res) => {
             });
         }
 
+        let rawInput = username.trim();
+        let cleanDid = rawInput;
+        if (!cleanDid.startsWith('did:sih26125:')) {
+            const cleanSuffix = cleanDid.replace(/^did:[^:]+:/i, '').replace(/^did:/i, '');
+            cleanDid = `did:sih26125:${cleanSuffix}`;
+        }
+
         // Register user account in PENDING_APPROVAL status
         userCredentials.set(cleanDid, { password, role: targetRole, status: 'PENDING_APPROVAL', name: username });
 
@@ -131,13 +138,13 @@ exports.registerUser = async (req, res) => {
         addSystemSignupTask({
             did: cleanDid,
             username: cleanDid.replace('did:sih26125:', ''),
-            requestedRole: role,
+            requestedRole: targetRole,
         });
 
         return res.status(201).json({
             success: true,
             did: cleanDid,
-            role,
+            role: targetRole,
             status: 'PENDING_APPROVAL',
             username: cleanDid.replace('did:sih26125:', ''),
             message: 'Signup request submitted to Admin! Dashboard access will be unlocked upon Admin approval.'

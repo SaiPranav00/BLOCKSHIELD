@@ -130,7 +130,7 @@ export default function RequestModal({ type = 'DID', onSubmitRequest, onClose })
           <label className="field-label" htmlFor="request-document">
             Supporting verification document <span>REQUIRED</span>
           </label>
-          <label className="upload-control" htmlFor="request-document">
+          <label className="upload-control">
             <span className="upload-icon">↑</span>
             <span>
               <strong>{docFile ? docFile.name : 'Choose a PDF or image'}</strong>
@@ -141,6 +141,7 @@ export default function RequestModal({ type = 'DID', onSubmitRequest, onClose })
               type="file"
               accept="application/pdf,image/jpeg,image/png"
               onChange={handleFileChange}
+              onClick={(e) => e.stopPropagation()}
               required
             />
           </label>

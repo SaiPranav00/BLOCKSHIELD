@@ -126,17 +126,49 @@ function executeMockTransaction(funcName, args) {
     switch (funcName) {
         case 'CreateDID': {
             const [did, publicKey, role] = args;
-            if (mockStore.identities.has(did)) {
-                throw new Error(`identity with DID ${did} already exists`);
-            }
             const targetRole = (role || 'USER').toUpperCase();
             if (targetRole === 'ADMIN' && did !== 'did:sih26125:ADMIN001') {
                 throw new Error('System policy error: Only one primary Administrator (did:sih26125:ADMIN001) is permitted.');
             }
+
+            // Sync userCredentials in access.controller
+            try {
+                const { getUserCredentials } = require('../controllers/access.controller');
+                const creds = getUserCredentials();
+                const userCred = creds.get(did);
+                if (userCred) {
+                    userCred.status = 'ACTIVE';
+                    userCred.role = targetRole;
+                }
+            } catch (e) {
+                // Ignore sync errors
+            }
+
+            if (mockStore.identities.has(did)) {
+                const existing = mockStore.identities.get(did);
+                existing.status = 'ACTIVE';
+                existing.role = targetRole;
+                if (publicKey) existing.publicKey = publicKey;
+                existing.updatedAt = now;
+                mockStore.identities.set(did, existing);
+
+                mockStore.auditLogs.unshift({
+                    docType: 'audit',
+                    eventId: `AUDIT_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                    actorDID: 'did:sih26125:ADMIN001',
+                    action: 'CREATE_DID',
+                    resourceId: did,
+                    result: 'ALLOWED',
+                    timestamp: String(Math.floor(Date.now() / 1000)),
+                    details: `DID approved/activated on ledger with role ${existing.role}`
+                });
+                return existing;
+            }
+
             const identity = {
                 docType: 'identity',
                 did,
-                publicKey,
+                publicKey: publicKey || 'RSA-2048-PUBKEY',
                 role: targetRole,
                 status: 'ACTIVE',
                 createdBy: 'e2e_mock_client_id',

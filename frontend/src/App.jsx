@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import CentralPortal from './components/CentralPortal';
+import AdminLanding from './components/AdminLanding';
 import AdminView from './components/AdminView';
 import ManagerView from './components/ManagerView';
 import AuditorView from './components/AuditorView';
@@ -14,9 +15,9 @@ import './App.css';
 
 function App() {
   // Auto-detect port assignment for dedicated role hosting:
-  // Port 5174 -> Admin, Port 5175 -> Manager, Port 5176 -> Auditor, Port 5173 -> General/Portal
+  // Port 5174 -> Admin Landing Page, Port 5175 -> Manager, Port 5176 -> Auditor, Port 5173 -> General/Portal
   const initialPort = typeof window !== 'undefined' ? (window.location.port || '5173') : '5173';
-  const initialView = initialPort === '5174' ? 'ADMIN'
+  const initialView = initialPort === '5174' ? 'ADMIN_LANDING'
     : initialPort === '5175' ? 'MANAGER'
     : initialPort === '5176' ? 'AUDITOR'
     : 'PORTAL';
@@ -29,7 +30,7 @@ function App() {
     : initialPort === '5176' ? 'did:sih26125:AUDITOR001'
     : 'did:sih26125:USER001';
 
-  // Navigation View State: 'PORTAL' (Central Landing) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
+  // Navigation View State: 'PORTAL' (Central Landing), 'ADMIN_LANDING' (Admin Landing) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
   const [currentView, setCurrentView] = useState(initialView);
   const [activeRole, setActiveRole] = useState(initialRole);
   const [activeDID, setActiveDID] = useState(initialDID);
@@ -113,14 +114,18 @@ function App() {
 
   const handleLogout = () => {
     setAuthUser(null);
-    setActiveDID('');
-    setActiveRole('USER');
-    setCurrentView('PORTAL');
+    setActiveDID(initialPort === '5174' ? 'did:sih26125:ADMIN001' : 'did:sih26125:USER001');
+    setActiveRole(initialPort === '5174' ? 'ADMIN' : 'USER');
+    setCurrentView(initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL');
     showToast('Logged out successfully', 'info');
   };
 
   const handleReturnHome = () => {
-    setCurrentView('PORTAL');
+    if (initialPort === '5174') {
+      setCurrentView('ADMIN_LANDING');
+    } else {
+      setCurrentView('PORTAL');
+    }
     fetchMetrics();
   };
 
@@ -177,12 +182,27 @@ function App() {
 
       {/* Main Viewport */}
       <main className="main-viewport">
-        {/* VIEW 1: Central Portal Landing Page (4 Portals: Admin, Manager, Auditor, User) */}
+        {/* VIEW 1: Central Portal Landing Page (Port 5173 default) */}
         {currentView === 'PORTAL' && (
           <CentralPortal
             metrics={metrics}
             systemStatus={systemStatus}
             onSelectRole={handleSelectRoleFromPortal}
+          />
+        )}
+
+        {/* VIEW 1B: Dedicated Admin Landing Page (Port 5174 default) */}
+        {currentView === 'ADMIN_LANDING' && (
+          <AdminLanding
+            metrics={metrics}
+            systemStatus={systemStatus}
+            authUser={authUser}
+            onEnterDashboard={() => setCurrentView('ADMIN')}
+            onLoginSuccess={handleLoginSuccess}
+            onOpenAuth={() => {
+              setPendingRoleTarget('ADMIN');
+              setShowAuthModal(true);
+            }}
           />
         )}
 
@@ -193,6 +213,7 @@ function App() {
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
             onMetricsUpdate={handleMetricsUpdate}
+            onLogout={handleLogout}
           />
         )}
 

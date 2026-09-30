@@ -13,7 +13,7 @@ import {
   generateKeyPair,
 } from '../services/api';
 
-export default function AdminView({ activeDID, notify, onViewProvenance, onMetricsUpdate }) {
+export default function AdminView({ activeDID, notify, onViewProvenance, onMetricsUpdate, onLogout }) {
   const [activeTab, setActiveTab] = useState('register-did');
   
   const [didsList, setDidsList] = useState([]);
@@ -321,49 +321,62 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
 
   return (
     <div className="dashboard-container admin-dashboard">
-      <div className="sub-nav">
-        <button
-          className={`sub-tab ${activeTab === 'register-did' ? 'active' : ''}`}
-          onClick={() => setActiveTab('register-did')}
-        >
-          1. Register DID
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'revoke-did' ? 'active' : ''}`}
-          onClick={() => setActiveTab('revoke-did')}
-        >
-          2. Revoke DID
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'mint-nft' ? 'active' : ''}`}
-          onClick={() => setActiveTab('mint-nft')}
-        >
-          3. Mint Asset
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'allocate-nft' ? 'active' : ''}`}
-          onClick={() => setActiveTab('allocate-nft')}
-        >
-          4. Allocate Asset
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'transfer-nft' ? 'active' : ''}`}
-          onClick={() => setActiveTab('transfer-nft')}
-        >
-          5. Transfer Asset
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'revoke-nft' ? 'active' : ''}`}
-          onClick={() => setActiveTab('revoke-nft')}
-        >
-          6. Revoke Asset
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'audit-logs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('audit-logs')}
-        >
-          7. Audit Logs ({auditList.length})
-        </button>
+      <div className="sub-nav sub-nav-with-logout">
+        <div className="sub-nav-tabs">
+          <button
+            className={`sub-tab ${activeTab === 'register-did' ? 'active' : ''}`}
+            onClick={() => setActiveTab('register-did')}
+          >
+            1. Register DID
+          </button>
+          <button
+            className={`sub-tab ${activeTab === 'revoke-did' ? 'active' : ''}`}
+            onClick={() => setActiveTab('revoke-did')}
+          >
+            2. Revoke DID
+          </button>
+          <button
+            className={`sub-tab ${activeTab === 'mint-nft' ? 'active' : ''}`}
+            onClick={() => setActiveTab('mint-nft')}
+          >
+            3. Mint Asset
+          </button>
+          <button
+            className={`sub-tab ${activeTab === 'allocate-nft' ? 'active' : ''}`}
+            onClick={() => setActiveTab('allocate-nft')}
+          >
+            4. Allocate Asset
+          </button>
+          <button
+            className={`sub-tab ${activeTab === 'transfer-nft' ? 'active' : ''}`}
+            onClick={() => setActiveTab('transfer-nft')}
+          >
+            5. Transfer Asset
+          </button>
+          <button
+            className={`sub-tab ${activeTab === 'revoke-nft' ? 'active' : ''}`}
+            onClick={() => setActiveTab('revoke-nft')}
+          >
+            6. Revoke Asset
+          </button>
+          <button
+            className={`sub-tab ${activeTab === 'audit-logs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('audit-logs')}
+          >
+            7. Audit Logs ({auditList.length})
+          </button>
+        </div>
+
+        {onLogout && (
+          <button
+            type="button"
+            className="btn-admin-logout"
+            onClick={onLogout}
+            title="Log Out of Admin Console"
+          >
+            <span>🔒 Log Out</span>
+          </button>
+        )}
       </div>
 
       <div className="dashboard-content">

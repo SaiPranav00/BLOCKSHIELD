@@ -172,7 +172,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             {mode === 'register' && (
               <div className="form-group">
                 <label className="label">Verification Document (Optional):</label>
-                <label className="upload-control" htmlFor="auth-document">
+                <label className="upload-control">
                   <span className="upload-icon">↑</span>
                   <span>
                     <strong>{docFile ? docFile.name : 'Choose a PDF or image'}</strong>
@@ -184,6 +184,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                     type="file"
                     accept="application/pdf,image/jpeg,image/png"
                     onChange={handleFileChange}
+                    onClick={(e) => e.stopPropagation()}
                   />
                 </label>
               </div>
