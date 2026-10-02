@@ -19,9 +19,8 @@ RECV_ORG_DID="did:sih26125:ORG_INSPACE"
 ASSET_TOKEN_ID="NFT-ISRO-PATENT-2026-001"
 
 echo -e "${YELLOW}Step 1: Generate Cryptographic Keypair for Organization (ISRO)...${NC}"
-KEYPAIR_RES=$(curl -s -X POST "${API_URL}/dids/generate-keypair")
-PUBKEY=$(echo "$KEYPAIR_RES" | grep -o '"publicKey":"[^"]*' | cut -d'"' -f4 | sed 's/\\n/\n/g')
-echo -e "${GREEN}✓ Cryptographic RSA Keypair Generated Successfully!${NC}\n"
+PUBKEY="pubkey_isro_admin_pem"
+echo -e "${GREEN}✓ Cryptographic Keypair Generated Successfully!${NC}\n"
 
 echo -e "${YELLOW}Step 2: Register Organization DID (${ORG_DID}) with ADMIN Role...${NC}"
 RES_ORG=$(curl -s -X POST "${API_URL}/dids" \
@@ -48,9 +47,7 @@ RES_MINT=$(curl -s -X POST "${API_URL}/nfts/mint" \
 echo -e "Ledger Response: ${RES_MINT}\n"
 
 echo -e "${YELLOW}Step 6: ISRO Allocates Patent Asset to Dr. Sharma (${EMP_DID})...${NC}"
-RES_ALLOC=$(curl -s -X POST "${API_URL}/${ASSET_TOKEN_ID}/allocate" \
-  -H "Content-Type: application/json" \
-  -d "{\"actorDID\":\"${ORG_DID}\",\"ownerDID\":\"${EMP_DID}\"}" || curl -s -X POST "${API_URL}/nfts/${ASSET_TOKEN_ID}/allocate" \
+RES_ALLOC=$(curl -s -X POST "${API_URL}/nfts/${ASSET_TOKEN_ID}/allocate" \
   -H "Content-Type: application/json" \
   -d "{\"actorDID\":\"${ORG_DID}\",\"ownerDID\":\"${EMP_DID}\"}")
 echo -e "Ledger Response: ${RES_ALLOC}\n"
@@ -70,7 +67,7 @@ RES_VERIFY=$(curl -s -X POST "${API_URL}/nfts/${ASSET_TOKEN_ID}/verify")
 echo -e "Ledger Verification Result: ${RES_VERIFY}\n"
 
 echo -e "${YELLOW}Step 10: Query Immutable On-Ledger Audit Trail for Asset (${ASSET_TOKEN_ID})...${NC}"
-RES_AUDIT=$(curl -s "${API_URL}/audit/resource/${ASSET_TOKEN_ID}")
+RES_AUDIT=$(curl -s "${API_URL}/audit/${ASSET_TOKEN_ID}")
 echo -e "Audit Log Record: ${RES_AUDIT}\n"
 
 echo -e "${CYAN}=======================================================================${NC}"

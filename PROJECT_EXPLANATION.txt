@@ -1,0 +1,112 @@
+================================================================================
+  BLOCKSHIELD: SIH 2026 BLOCKCHAIN SECURE IDENTITY & ASSET MANAGEMENT PLATFORM
+================================================================================
+
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+BLOCKSHIELD (Problem Statement ID: SIH26125) is an enterprise-grade, decentralized
+identity, access control, and digital asset governance platform built on top of 
+Hyperledger Fabric 2.5 blockchain technology.
+
+It solves key security and governance challenges by providing:
+- Decentralized Identity (DID) without centralized password stores.
+- Role-Based Access Control (RBAC) enforced directly inside blockchain smart contracts.
+- Digital Asset Tokenization (NFTs) for verifiable ownership.
+- Immutable Audit Trail for complete security monitoring.
+
+
+2. THE 5 CORE COMPONENTS
+--------------------------------------------------------------------------------
+1) Decentralized Identity (DID):
+   - W3C-inspired DIDs formatted as `did:sih26125:<identifier>`.
+   - Stores registered public keys, identity status, and assigned roles.
+   - Private keys are NEVER stored on-chain or on the backend.
+
+2) Role-Based Access Control (RBAC):
+   - Enforces 4 distinct roles: ADMIN, MANAGER, AUDITOR, and USER.
+   - Access permission checks are executed natively inside Go chaincode.
+
+3) NFT Digital Asset Model:
+   - Unique tokenized assets containing: tokenId, assetName, assetType, 
+     metadata, creatorDID, ownerDID, and status.
+
+4) NFT Lifecycle Management:
+   - Minting (Admin only)
+   - Asset Allocation & Transfer (Owner / Manager / Admin)
+   - Asset Revocation (Admin only)
+   - Cryptographic Ownership Verification & History Tracking
+
+5) Immutable Audit Trail:
+   - Every read, write, state update, and unauthorized access attempt (ALLOWED 
+     or DENIED) generates an unalterable audit log on the blockchain ledger.
+
+
+3. SYSTEM ARCHITECTURE & LAYERS
+--------------------------------------------------------------------------------
+[ React Dashboard Frontend ] (Port 5173 / 5174 / 5175 / 5176)
+             │
+             ▼ REST API (HTTP / JSON)
+[ Node.js + Express Backend ] (Port 5000)
+   - Input validation & REST endpoint controllers
+   - Node.js `crypto` signature verification
+   - Hyperledger Fabric Gateway SDK connection (`@hyperledger/fabric-gateway`)
+             │
+             ▼ gRPC TLS (Port 7051 / 9051)
+[ Hyperledger Fabric Blockchain Network ]
+   - Channel: `mychannel`
+   - Orderer: Raft Consensus (Port 7050)
+   - Peers: `peer0.org1` (Port 7051), `peer0.org2` (Port 9051)
+             │
+             ▼
+[ State Database (CouchDB) ]
+   - `couchdb0` (Port 5984), `couchdb1` (Port 7984)
+   - Enables rich JSON queries on ledger assets and DIDs
+             │
+             ▼
+[ Go Chaincode Smart Contract (`sih26125`) ]
+   - Go contract handles DID registration, RBAC rules, NFT lifecycle, and 
+     on-ledger event logging.
+
+
+4. ROLE OF DOCKER IN THIS PROJECT
+--------------------------------------------------------------------------------
+Docker powers the entire blockchain infrastructure in this project:
+
+- `peer0.org1.example.com` (Container): Endorses & validates transactions for Org1.
+- `peer0.org2.example.com` (Container): Endorses & validates transactions for Org2.
+- `orderer.example.com` (Container): Raft consensus service ordering transactions.
+- `couchdb0` & `couchdb1` (Containers): NoSQL state databases backing peer nodes.
+- `dev-peer0.org1...` & `dev-peer0.org2...` (Containers): Dynamic Docker containers 
+  spun up automatically to execute the Go smart contract (chaincode) in isolation.
+
+
+5. END-TO-END TRANSACTION DATA FLOW
+--------------------------------------------------------------------------------
+Step 1: User performs an action on the React Frontend (e.g., mints an NFT).
+Step 2: Frontend calls Node.js REST API (`http://localhost:5000/api/nfts/mint`).
+Step 3: Backend verifies the request signature locally using public key crypto.
+Step 4: Backend submits the transaction proposal via Fabric Gateway SDK over gRPC.
+Step 5: Fabric Peers invoke the Go Chaincode container (`sih26125`).
+Step 6: Go Chaincode validates that the caller has ADMIN role.
+Step 7: If authorized, Chaincode writes the NFT to the ledger & CouchDB state.
+Step 8: Transaction block is committed to the blockchain, and result returns to UI.
+
+
+6. SUMMARY OF EXECUTION COMMANDS
+--------------------------------------------------------------------------------
+1) Start Blockchain Network & Deploy Smart Contract:
+   cd /home/lucky/Documents/blocksheild/BLOCKSHIELD
+   ./scripts/network-up.sh
+
+2) Seed Initial Bootstrap Data (Admin, Manager, Auditor, User DIDs & Sample NFT):
+   ./scripts/bootstrap.sh
+
+3) Start Node.js REST API Backend:
+   cd backend && npm start
+
+4) Start React Frontend UI:
+   cd frontend && npm run dev
+
+5) Stop Blockchain Network:
+   ./scripts/network-down.sh
+================================================================================
