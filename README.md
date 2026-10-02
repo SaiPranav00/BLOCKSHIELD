@@ -1,181 +1,192 @@
-# SIH 2026: Blockchain-Based Secure Platform for Identity, Access Control, and Digital Asset Management
+# BLOCKSHIELD: Blockchain-Based Secure Platform for Identity, Access Control, and Digital Asset Management
 
 > **Problem Statement ID**: SIH26125  
-> **Blockchain Technology**: Hyperledger Fabric 2.5, Fabric CA, CouchDB, Go Chaincode (`fabric-contract-api-go`), Node.js, Express.js, `@hyperledger/fabric-gateway` SDK.
+> **Technology Stack**: Hyperledger Fabric 2.5, Fabric CA, CouchDB, Go Chaincode (`fabric-contract-api-go`), Node.js, Express.js, `@hyperledger/fabric-gateway` SDK, React 19, Vite.
 
 ---
 
-## 1. Project Overview
+## 1. Executive Summary & Problem Overview
 
-This repository provides the complete **Backend and Blockchain Layer** for the SIH 2026 Problem Statement SIH26125. The platform establishes an enterprise-grade, decentralised identity and digital asset governance network.
+In high-security enterprise and defense engineering environments (such as Bharat Electronics Limited / BEL domain models), managing identity, authorization, and high-value digital and physical assets across departmental boundaries presents critical security challenges:
 
-### Five Core Connected Components
-1. **Decentralized Identity (DID)**: W3C-inspired DIDs (`did:sih26125:<id>`) managing registered public keys, identity status, and roles without storing private keys on-chain.
-2. **Role-Based Access Control (RBAC)**: Configurable permission model (`ADMIN`, `MANAGER`, `AUDITOR`, `USER`) enforced directly inside Go chaincode.
-3. **NFT Digital Asset Model**: Unique tokenized records (`tokenId`, `assetName`, `assetType`, `metadata`, `creatorDID`, `ownerDID`, `status`).
-4. **NFT Lifecycle Management**: Minting (Admin-only), Allocation, Transfer, Revocation, Verification, and Ownership Search by Owner DID.
-5. **Immutable Audit Trail**: On-ledger event logging recording all state changes and access attempts (`ALLOWED` and `DENIED`).
+1. **WHO ARE YOU?** (Identity): Traditional centralized credential repositories are vulnerable to single-point compromise.
+2. **WHAT ARE YOU ALLOWED TO DO?** (Authorization): Access control enforced solely in web applications can be bypassed or manipulated.
+3. **WHAT ASSETS ARE YOU AUTHORIZED TO CONTROL?** (Asset Governance): Physical equipment (e.g. RF Signal Analyzers, Workstations, Oscilloscopes) and digital engineering assets require immutable custody tracking without confusing legal ownership with current custody.
+
+**BLOCKSHIELD** establishes a permissioned, cryptographically verifiable enterprise security platform using **Hyperledger Fabric 2.5**. It decouples legal asset ownership (e.g. `BEL`) from temporary custodian assignment (e.g. `did:sih26125:N123456`), enforces Role-Based Access Control (RBAC) natively inside smart contracts, and logs every security-sensitive event to an immutable audit trail.
 
 ---
 
-## 2. System Architecture
+## 2. Core Architectural Pillars
+
+### 1) Cryptographically Verifiable Decentralized Identity (DID)
+- **Format**: `did:sih26125:<identifier>` (e.g., `did:sih26125:ADMIN001`, `did:sih26125:N123456`).
+- **Public Key Infrastructure**: Public keys are registered on the Fabric ledger.
+- **Client-Side Key Privacy**: Private keys are NEVER stored on the blockchain, in chaincode, in CouchDB, in the backend database, or in source code. Signatures are generated client-side and verified by backend crypto middleware.
+
+### 2) Centralized Chaincode RBAC Security Boundary
+Access permissions are enforced centrally inside Go smart contracts (`identity.go`, `rbac.go`, `nft.go`, `transfer.go`, `audit.go`):
+- **`ADMIN`**: Identity registration, role assignment, identity revocation, tokenized asset minting, asset revocation, system audit inspection.
+- **`MANAGER`**: Department user and asset visibility, approval/rejection of custodian transfer requests, department resource allocation.
+- **`AUDITOR`**: Read-only inspection of audit streams, identity records, custody timelines, and security alert investigations.
+- **`USER`**: Authenticated profile access, custody inspection of assigned assets, initiation of custodian transfer requests.
+
+### 3) Tokenized Asset Model (Legal Owner vs Custodian)
+Each asset is represented on-ledger as a unique tokenized asset record:
+```json
+{
+  "docType": "nft",
+  "tokenId": "NFT-1001",
+  "assetId": "BEL-RF-00421",
+  "assetName": "RF Signal Analyzer",
+  "assetType": "TESTING_EQUIPMENT",
+  "legalOwner": "BEL",
+  "custodian": "did:sih26125:N123456",
+  "department": "R&D",
+  "location": "R&D Lab 1",
+  "metadataHash": "a7b8c9d0e1f2",
+  "status": "ACTIVE",
+  "createdBy": "did:sih26125:ADMIN001"
+}
+```
+*Note: Representative defense electronics and hardware assets (RF Analyzers, Workstations, Transceivers) serve as prototype demonstration data.*
+
+### 4) Custodian Transfer Request & Approval Workflow
+Users CANNOT directly change asset custody. Transfers follow a multi-step governed workflow:
+```
+Engineer A (Custodian) ──> Create Transfer Request (Status: PENDING)
+                                    │
+                                    ▼
+Manager / Admin ─────────────> Approve Request (or Reject)
+                                    │
+                                    ▼
+Smart Contract Validation ───> Update Custodian on Ledger (Status: ACTIVE)
+                                    │
+                                    ▼
+Immutable Audit Log ─────────> TRANSFER_APPROVED & ASSET_TRANSFERRED Logged
+```
+
+### 5) Immutable Ledger Audit Trail
+Security-sensitive events (`IDENTITY_CREATED`, `IDENTITY_REVOKED`, `ROLE_ASSIGNED`, `ASSET_MINTED`, `ASSET_ALLOCATED`, `TRANSFER_REQUESTED`, `TRANSFER_APPROVED`, `TRANSFER_REJECTED`, `ASSET_TRANSFERRED`, `ASSET_REVOKED`, `ACCESS_DENIED`) generate tamper-evident audit records on the blockchain ledger. Normal read queries bypass blockchain state writes for maximum efficiency.
+
+---
+
+## 3. System Architecture Diagram
 
 ```text
-React Dashboard (Separate Frontend)
+React 19 Dashboard Frontend (Port 5173 / 5174 / 5175 / 5176)
        │
-       ▼ (REST API / HTTP JSON)
-┌─────────────────────────────────────────────────────────────┐
-│                    Node.js Express Backend                  │
-│  - Endpoint Controllers & Input Validation                  │
-│  - Node.js `crypto` Signature Verification                  │
-│  - `@hyperledger/fabric-gateway` SDK Connection             │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ gRPC TLS (Port 7051)
-┌──────────────────────────────▼──────────────────────────────┐
-│             Hyperledger Fabric Test Network                 │
-│  - Channel: mychannel                                       │
-│  - Orderer: Raft Consensus (Port 7050)                      │
-│  - Peers: peer0.org1 (7051), peer0.org2 (9051)              │
-│  - State DB: CouchDB (5984, 7984)                           │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────┐
-│                    Go Chaincode (sih26125)                  │
-│  - DID Registry & Verification                              │
-│  - Chaincode-Level RBAC Authorization                       │
-│  - NFT Minting, Allocation, Transfer & Revocation           │
-│  - On-Ledger Audit Event Generation                         │
-└─────────────────────────────────────────────────────────────┘
+       ▼ REST API (HTTP / JSON)
+Node.js Express Backend API (Port 5000)
+  ├── Signature Verification & Input Validation
+  └── `@hyperledger/fabric-gateway` SDK Connection
+       │
+       ▼ gRPC TLS (Ports 7051 / 9051)
+Hyperledger Fabric 2.5 Permissioned Network
+  ├── Channel: `mychannel`
+  ├── Orderer: Raft Consensus (Port 7050)
+  ├── Peers: `peer0.org1` (7051), `peer0.org2` (9051)
+  └── State DB: CouchDB `couchdb0` (5984), `couchdb1` (7984)
+       │
+       ▼
+Go Smart Contract / Chaincode (`sih26125`)
+  ├── DID & Identity Management (`identity.go`)
+  ├── Chaincode-Level RBAC (`rbac.go`)
+  ├── Tokenized Asset Lifecycle (`nft.go`)
+  ├── Transfer Request Workflow (`transfer.go`)
+  └── Immutable Audit Event Generator (`audit.go`)
 ```
 
 ---
 
-## 3. Directory Structure
-
-```text
-.
-├── blockchain/
-│   ├── chaincode/
-│   │   ├── main.go               # Contract initialization & Ping
-│   │   ├── identity.go           # DID management & verification
-│   │   ├── rbac.go               # RBAC permission check & role assignment
-│   │   ├── nft.go                # NFT lifecycle, history & search
-│   │   ├── audit.go              # On-ledger audit logging
-│   │   ├── identity_test.go      # Chaincode unit tests
-│   │   └── go.mod
-│   └── network/                  # Fabric test-network & binaries
-├── backend/
-│   ├── src/
-│   │   ├── app.js                # Express app & route mounting
-│   │   ├── server.js             # HTTP server entry point
-│   │   ├── fabric/gateway.js     # @hyperledger/fabric-gateway connection
-│   │   ├── crypto/didCrypto.js   # Cryptographic signature verification
-│   │   ├── controllers/          # Identity, Role, NFT, Audit controllers
-│   │   └── routes/               # API routes
-│   ├── package.json
-│   └── .env
-├── scripts/
-│   ├── network-up.sh            # Starts Fabric network & CouchDB
-│   ├── deploy-chaincode.sh      # Packages & deploys Go chaincode
-│   ├── bootstrap.sh             # Seeds ADMIN, MANAGER, AUDITOR, USER DIDs
-│   ├── test-all.sh              # 17-Step E2E Automated Test Suite
-│   └── network-down.sh          # Stops network & cleans up containers
-├── docs/
-│   ├── api.md                   # Complete REST API specification
-│   ├── architecture.md          # Architecture overview
-│   ├── did.md                   # DID specification
-│   ├── rbac.md                  # RBAC permission matrix
-│   ├── nft.md                   # NFT lifecycle & data model
-│   └── transaction-flow.md      # Fabric submit vs evaluate flow
-└── README.md
-```
-
----
-
-## 4. Quick Start & Execution Commands
+## 4. Quick Start & Execution Guide
 
 ### Prerequisites
 - Docker & Docker Compose v2+
 - Go 1.22+
 - Node.js v18+ & npm
 
-### Step 1: Start Fabric Network
+### Step 1: Start Hyperledger Fabric Network & Deploy Chaincode
+From project root (`/home/lucky/Documents/blocksheild/BLOCKSHIELD`):
 ```bash
 ./scripts/network-up.sh
 ```
 
-### Step 2: Deploy Go Chaincode
+### Step 2: Seed Initial Bootstrap Demo Data
 ```bash
-./scripts/deploy-chaincode.sh
+./scripts/bootstrap.sh
 ```
 
-### Step 3: Start Node.js REST API Server
+### Step 3: Start Node.js REST API Backend
 ```bash
 cd backend
 npm install
 npm start
 ```
-The REST API will start on `http://localhost:5000`.
+*Backend API server runs live on `http://localhost:5000`.*
 
-### Step 4: Seed Bootstrap Demo Data
+### Step 4: Start React Frontend UI
+In a separate terminal:
 ```bash
-./scripts/bootstrap.sh
+cd frontend
+npm install
+npm run dev
 ```
-
-### Step 5: Run Complete End-to-End Test Suite
-```bash
-./scripts/test-all.sh
-```
-
-Expected Output:
-```text
-=======================================================
-=== TEST SUMMARY ASSERTION CHECK ===
-=======================================================
-DID Creation         ✓
-Role Assignment      ✓
-NFT Minting          ✓
-NFT Allocation       ✓
-NFT Search           ✓
-NFT Verification     ✓
-NFT Transfer         ✓
-Unauthorized Test    ✓
-Audit Trail          ✓
-NFT Revocation       ✓
-End-to-End Test      ✓
-=======================================================
-```
+*Frontend opens at `http://localhost:5173`.*
 
 ---
 
-## 5. REST API Overview
+## 5. Demo Credentials & Portals
 
-| Endpoint | Method | Role | Description |
-|---|:---:|:---:|---|
-| `/api/dids` | POST | ADMIN | Register a new DID |
-| `/api/dids/:did` | GET | ALL | Fetch DID record |
-| `/api/dids/verify` | POST | ALL | Verify cryptographic signature |
-| `/api/roles/assign` | POST | ADMIN | Assign/update DID role |
-| `/api/nfts/mint` | POST | ADMIN | Mint new NFT asset |
-| `/api/nfts/:tokenId/allocate` | POST | ADMIN/MANAGER | Allocate NFT to DID |
-| `/api/nfts/:tokenId/transfer` | POST | OWNER/ADMIN | Transfer active NFT |
-| `/api/nfts/:tokenId/revoke` | POST | ADMIN | Revoke NFT asset |
-| `/api/nfts/:tokenId/verify` | POST | ALL | Verify NFT validity |
-| `/api/nfts/owner/:did` | GET | ALL | Get all NFTs owned by DID |
-| `/api/nfts/:tokenId/history` | GET | ALL | Retrieve ownership history |
-| `/api/audit` | GET | ADMIN/AUDITOR | Query full audit trail |
+| Role | Default DID | Default Password | Dedicated Portal Command |
+|---|---|---|---|
+| **ADMIN** | `did:sih26125:ADMIN001` | `password123` | `npm run dev:admin` (Port 5174) |
+| **MANAGER** | `did:sih26125:MGR001` | `password123` | `npm run dev:manager` (Port 5175) |
+| **AUDITOR** | `did:sih26125:AUDIT001` | `password123` | `npm run dev:auditor` (Port 5176) |
+| **USER (Eng A)** | `did:sih26125:N123456` | `password123` | `npm run dev:users` (Port 5173) |
+| **USER (Eng B)** | `did:sih26125:ENG002` | `password123` | `npm run dev:users` (Port 5173) |
 
 ---
 
-## 6. Cryptographic Security & Chaincode RBAC
+## 6. End-to-End Demo Workflow Story
 
-1. **Private Key Privacy**: Private keys are NEVER accepted, stored, or logged by the backend or blockchain. Signature verification takes place in Node.js using registered public keys from the ledger.
-2. **Chaincode Authorization**: Unauthorized operations (e.g., a USER attempting to call `MintNFT`) are blocked inside Go chaincode and generate an audit event with `result: "DENIED"`.
+1. **Step 1 (DID Registration)**: Admin registers Engineer A (`did:sih26125:N123456`) with `USER` role in `R&D` department.
+2. **Step 2 (Asset Minting)**: Admin mints asset `NFT-1001` (`RF Signal Analyzer`, `BEL-RF-00421`, Legal Owner: `BEL`).
+3. **Step 3 (Asset Allocation)**: Admin allocates `NFT-1001` custodian to Engineer A (`did:sih26125:N123456`).
+4. **Step 4 (User Inspection & Transfer Request)**: Engineer A logs in, views `RF Signal Analyzer`, and requests custody transfer to Engineer B (`did:sih26125:ENG002`). Asset status moves to `TRANSFER_PENDING`.
+5. **Step 5 (Manager Review & Approval)**: Manager (`did:sih26125:MGR001`) views pending transfer request and clicks **Approve**.
+6. **Step 6 (Ledger Execution)**: Go Chaincode validates authorization, updates asset custodian to Engineer B, sets status to `ACTIVE`, and writes `TRANSFER_APPROVED` & `ASSET_TRANSFERRED` audit events.
+7. **Step 7 (Auditor Inspection)**: Auditor (`did:sih26125:AUDIT001`) opens the Asset Custody Inspector and views the visual provenance timeline (Minted → Allocated → Transfer Requested → Approved → Custodian Transferred).
+8. **Step 8 (Security Demonstration)**: A USER attempts an Admin action (e.g. minting an asset). The transaction is rejected inside Go chaincode and logged as `result: "DENIED"` in the Auditor security stream.
 
 ---
 
-## 7. Stop Network
-To tear down the containers and clean up the environment:
+## 7. Security Model & Best Practices
+
+- **Zero Private Key Exposure**: Server and chaincode verify signatures using stored public keys without ever holding user private keys.
+- **Chaincode Security Boundary**: RBAC rules are enforced at the smart contract level, preventing frontend or API bypass.
+- **Input Sanitization**: All DIDs and Token IDs are sanitized to prevent injection attacks.
+- **Off-Ledger Filtering**: Unsensitive read requests do not create dummy blockchain transactions, preserving ledger performance.
+
+---
+
+## 8. Implementation Status
+
+| Feature | Status | Implementation Details |
+|---|---|---|
+| DID Cryptographic Identity | **IMPLEMENTED** | Format `did:sih26125:<id>`, public key registry, signature verification |
+| Chaincode RBAC Boundary | **IMPLEMENTED** | `ADMIN`, `MANAGER`, `AUDITOR`, `USER` enforced in Go chaincode |
+| Asset Model (Legal vs Custodian)| **IMPLEMENTED** | Tokenized asset records with `legalOwner`, `custodian`, `department`, `location` |
+| Custody Transfer Workflow | **IMPLEMENTED** | Request → Manager Approval → Ledger Custodian Commit |
+| Immutable Audit Stream | **IMPLEMENTED** | State-changing and security denial event logging |
+| Auditor Provenance Inspector | **IMPLEMENTED** | Visual timeline tracking asset lifecycle & custody changes |
+| Multi-Role Dashboards | **IMPLEMENTED** | React 19 dashboards tailored for Admin, Manager, Auditor, User |
+
+---
+
+## 9. Cleanup
+
+To shut down the Hyperledger Fabric containers and clear volumes:
 ```bash
 ./scripts/network-down.sh
 ```

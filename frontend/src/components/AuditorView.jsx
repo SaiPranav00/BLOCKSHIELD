@@ -3,6 +3,7 @@ import {
   getAuditLogs,
   getAuditLogsByResource,
   getAllDIDs,
+  getAllNFTs,
 } from '../services/api';
 
 export default function AuditorView({ notify, onViewProvenance }) {
@@ -10,20 +11,22 @@ export default function AuditorView({ notify, onViewProvenance }) {
   
   const [auditList, setAuditList] = useState([]);
   const [didsList, setDidsList] = useState([]);
+  const [nftsList, setNftsList] = useState([]);
 
   const [auditFilter, setAuditFilter] = useState('');
   const [didSearch, setDidSearch] = useState('');
-
   const [resourceSearch, setResourceSearch] = useState('');
   const [filteredLogs, setFilteredLogs] = useState([]);
+  const [deniedOnly, setDeniedOnly] = useState(false);
 
   const [provTokenId, setProvTokenId] = useState('');
 
   const refreshAuditData = async () => {
     try {
-      const [auditRes, didsRes] = await Promise.allSettled([
+      const [auditRes, didsRes, nftsRes] = await Promise.allSettled([
         getAuditLogs(),
         getAllDIDs(),
+        getAllNFTs(),
       ]);
 
       if (auditRes.status === 'fulfilled') {
@@ -33,6 +36,10 @@ export default function AuditorView({ notify, onViewProvenance }) {
       if (didsRes.status === 'fulfilled') {
         const data = didsRes.value?.data || didsRes.value || [];
         setDidsList(Array.isArray(data) ? data : []);
+      }
+      if (nftsRes.status === 'fulfilled') {
+        const data = nftsRes.value?.data || nftsRes.value || [];
+        setNftsList(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error(err);
@@ -54,7 +61,7 @@ export default function AuditorView({ notify, onViewProvenance }) {
 
   const handleFilterResource = async (e) => {
     e.preventDefault();
-    if (!resourceSearch.trim()) return notify('Enter Token ID or DID to filter', 'error');
+    if (!resourceSearch.trim()) return notify('Enter Token ID, DID, or TxID to filter', 'error');
 
     let cleanQuery = resourceSearch.trim();
     if (cleanQuery.toUpperCase().startsWith('NFT') || !cleanQuery.includes(':')) {
@@ -80,15 +87,20 @@ export default function AuditorView({ notify, onViewProvenance }) {
     onViewProvenance(cleanToken);
   };
 
-  const filteredAuditsList = auditList.filter(item =>
-    (item.action || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-    (item.resourceId || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-    (item.actorDID || '').toLowerCase().includes(auditFilter.toLowerCase())
-  );
+  const filteredAuditsList = auditList.filter(item => {
+    if (deniedOnly && item.result !== 'DENIED') return false;
+    return (
+      (item.action || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
+      (item.resourceId || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
+      (item.actorDID || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
+      (item.details || '').toLowerCase().includes(auditFilter.toLowerCase())
+    );
+  });
 
   const filteredDIDsList = didsList.filter(item =>
     (item.did || '').toLowerCase().includes(didSearch.toLowerCase()) ||
-    (item.role || '').toLowerCase().includes(didSearch.toLowerCase())
+    (item.role || '').toLowerCase().includes(didSearch.toLowerCase()) ||
+    (item.department || '').toLowerCase().includes(didSearch.toLowerCase())
   );
 
   return (
@@ -98,25 +110,25 @@ export default function AuditorView({ notify, onViewProvenance }) {
           className={`sub-tab ${activeTab === 'all-logs' ? 'active' : ''}`}
           onClick={() => setActiveTab('all-logs')}
         >
-          1. All Audit Logs ({auditList.length})
+          1. Immutable Audit Stream ({auditList.length})
         </button>
         <button
           className={`sub-tab ${activeTab === 'filter-resource' ? 'active' : ''}`}
           onClick={() => setActiveTab('filter-resource')}
         >
-          2. Resource Audit Search
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'registry' ? 'active' : ''}`}
-          onClick={() => setActiveTab('registry')}
-        >
-          3. Identity Registry ({didsList.length})
+          2. Resource / Tx Audit Lookup
         </button>
         <button
           className={`sub-tab ${activeTab === 'provenance' ? 'active' : ''}`}
           onClick={() => setActiveTab('provenance')}
         >
-          4. Asset Provenance Inspector
+          3. Asset Custody Inspector ({nftsList.length})
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'registry' ? 'active' : ''}`}
+          onClick={() => setActiveTab('registry')}
+        >
+          4. Identity Directory ({didsList.length})
         </button>
       </div>
 
@@ -125,12 +137,23 @@ export default function AuditorView({ notify, onViewProvenance }) {
         {activeTab === 'all-logs' && (
           <div className="glass-card">
             <div className="flex-between card-header-row mb-3">
-              <h3 className="card-title">Immutable Ledger Audit Trail</h3>
-              <div className="flex-gap">
+              <div>
+                <h3 className="card-title">Immutable Hyperledger Audit Trail</h3>
+                <p className="text-xs text-muted">Read-only tamper-evident event stream generated natively by Fabric chaincode.</p>
+              </div>
+              <div className="flex-gap align-center">
+                <label className="checkbox-label flex-gap align-center text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={deniedOnly}
+                    onChange={(e) => setDeniedOnly(e.target.checked)}
+                  />
+                  <span>Security Alerts Only (DENIED)</span>
+                </label>
                 <input
                   type="text"
                   className="input input-sm"
-                  placeholder="Search Audit Logs..."
+                  placeholder="Search Event, Actor, Resource..."
                   value={auditFilter}
                   onChange={(e) => setAuditFilter(e.target.value)}
                 />
@@ -147,25 +170,36 @@ export default function AuditorView({ notify, onViewProvenance }) {
                     <th>Resource ID</th>
                     <th>Result</th>
                     <th>Actor DID</th>
+                    <th>Details</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAuditsList.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="empty-table-cell">
-                        <p className="text-muted">No audit transactions recorded on ledger</p>
-                      </td>
+                      <td colSpan="6" className="text-center py-4 text-muted">No audit events match your filter criteria.</td>
                     </tr>
                   ) : (
-                    filteredAuditsList.map((log, idx) => (
-                      <tr key={idx}>
-                        <td className="text-sm">{log.timestamp ? new Date(Number(log.timestamp) * 1000).toLocaleString() : 'N/A'}</td>
-                        <td><span className="action-pill">{log.action}</span></td>
-                        <td><code>{log.resourceId}</code></td>
-                        <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
-                        <td><code>{log.actorDID && log.actorDID.startsWith('eDUw') ? 'did:sih26125:ADMIN001 (Fabric CA Admin)' : (log.actorDID || 'SYSTEM')}</code></td>
-                      </tr>
-                    ))
+                    filteredAuditsList.map((log, index) => {
+                      const isDenied = log.result === 'DENIED';
+                      const formattedTime = log.timestamp && !isNaN(log.timestamp)
+                        ? new Date(Number(log.timestamp) * 1000).toLocaleString()
+                        : log.timestamp || 'N/A';
+
+                      return (
+                        <tr key={log.eventId || index} className={isDenied ? 'row-denied' : ''}>
+                          <td className="text-xs">{formattedTime}</td>
+                          <td><span className="type-pill">{log.action}</span></td>
+                          <td><code>{log.resourceId}</code></td>
+                          <td>
+                            <span className={`status-pill ${isDenied ? 'status-revoked' : 'status-active'}`}>
+                              {log.result}
+                            </span>
+                          </td>
+                          <td><code>{log.actorDID}</code></td>
+                          <td className="text-xs text-muted">{log.details || 'N/A'}</td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -173,133 +207,139 @@ export default function AuditorView({ notify, onViewProvenance }) {
           </div>
         )}
 
-        {/* TAB 2: Filter by Resource */}
+        {/* TAB 2: Resource / Tx Audit Lookup */}
         {activeTab === 'filter-resource' && (
           <div className="glass-card">
-            <h3 className="card-title">Search Audit Logs by Resource ID</h3>
-            <p className="card-desc">Filter all transaction attempts for a specific DID or Token ID.</p>
+            <h3 className="card-title mb-2">Resource & Transaction Audit Lookup</h3>
+            <p className="text-sm text-muted mb-4">
+              Query specific audit events tied to an asset Token ID (e.g. <code>NFT-1001</code>) or DID.
+            </p>
 
-            <form onSubmit={handleFilterResource} className="form-inline-row">
+            <form onSubmit={handleFilterResource} className="flex-gap mb-4 max-w-lg">
               <input
                 type="text"
                 className="input"
+                placeholder="Enter Token ID or DID (e.g. NFT-1001)..."
                 value={resourceSearch}
                 onChange={(e) => setResourceSearch(e.target.value)}
-                placeholder="Enter Token ID or DID (e.g. NFT-2026-PATENT-001 or did:sih26125:ORG_ISRO)..."
                 required
               />
               <button type="submit" className="btn btn-primary">Search Audit Trail</button>
             </form>
 
-            <div className="results-container">
-              <h4 className="section-subtitle">Audit Entries Found ({filteredLogs.length})</h4>
-              <div className="table-responsive">
+            {filteredLogs.length > 0 && (
+              <div className="table-responsive mt-3">
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th>Event ID</th>
                       <th>Timestamp</th>
                       <th>Action</th>
-                      <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
+                      <th>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLogs.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="empty-table-cell">
-                          <p className="text-muted">No audit transactions found for this resource ID</p>
-                        </td>
+                    {filteredLogs.map((log, idx) => (
+                      <tr key={log.eventId || idx} className={log.result === 'DENIED' ? 'row-denied' : ''}>
+                        <td><code>{log.eventId}</code></td>
+                        <td className="text-xs">{log.timestamp && !isNaN(log.timestamp) ? new Date(Number(log.timestamp) * 1000).toLocaleString() : log.timestamp}</td>
+                        <td><span className="type-pill">{log.action}</span></td>
+                        <td><span className={`status-pill ${log.result === 'DENIED' ? 'status-revoked' : 'status-active'}`}>{log.result}</span></td>
+                        <td><code>{log.actorDID}</code></td>
+                        <td className="text-xs">{log.details}</td>
                       </tr>
-                    ) : (
-                      filteredLogs.map((log, idx) => (
-                        <tr key={idx}>
-                          <td className="text-sm">{log.timestamp ? new Date(Number(log.timestamp) * 1000).toLocaleString() : 'N/A'}</td>
-                          <td><span className="action-pill">{log.action}</span></td>
-                          <td><code>{log.resourceId}</code></td>
-                          <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
-                          <td><code>{log.actorDID && log.actorDID.startsWith('eDUw') ? 'did:sih26125:ADMIN001 (Fabric CA Admin)' : (log.actorDID || 'SYSTEM')}</code></td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: Asset Custody Inspector */}
+        {activeTab === 'provenance' && (
+          <div className="glass-card">
+            <div className="flex-between card-header-row mb-3">
+              <h3 className="card-title">Asset Provenance & Custody Roster</h3>
+              <form onSubmit={handleViewProvenanceDirect} className="flex-gap">
+                <input
+                  type="text"
+                  className="input input-sm"
+                  placeholder="Enter Token ID..."
+                  value={provTokenId}
+                  onChange={(e) => setProvTokenId(e.target.value)}
+                />
+                <button type="submit" className="btn btn-xs btn-primary">Inspect Timeline</button>
+              </form>
+            </div>
+
+            <div className="grid grid-3">
+              {nftsList.map((asset) => (
+                <div key={asset.tokenId} className="asset-card">
+                  <div className="asset-header">
+                    <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                    <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                  </div>
+                  <h4 className="asset-title">{asset.assetName || asset.name}</h4>
+                  <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
+                  {asset.assetId && <p className="asset-id">Asset ID: <code>{asset.assetId}</code></p>}
+                  <div className="asset-meta text-xs my-2">
+                    <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                    <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
+                    <p><strong>Department:</strong> {asset.department || 'R&D'}</p>
+                  </div>
+                  <button
+                    className="btn btn-xs btn-secondary w-full mt-2"
+                    onClick={() => onViewProvenance(asset.tokenId)}
+                  >
+                    View Visual History Timeline
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 3: Registry */}
+        {/* TAB 4: Identity Directory */}
         {activeTab === 'registry' && (
           <div className="glass-card">
             <div className="flex-between card-header-row mb-3">
-              <h3 className="card-title">Identity Compliance Registry ({didsList.length})</h3>
-              <div className="flex-gap">
-                <input
-                  type="text"
-                  className="input input-sm"
-                  placeholder="Filter DIDs..."
-                  value={didSearch}
-                  onChange={(e) => setDidSearch(e.target.value)}
-                />
-                <button className="btn btn-xs btn-secondary" onClick={refreshAuditData}>Refresh</button>
-              </div>
+              <h3 className="card-title">Identity & Public Key Registry</h3>
+              <input
+                type="text"
+                className="input input-sm"
+                placeholder="Search DID or Role..."
+                value={didSearch}
+                onChange={(e) => setDidSearch(e.target.value)}
+              />
             </div>
 
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>DID Identifier</th>
-                    <th>Assigned Role</th>
+                    <th>DID</th>
+                    <th>Role</th>
+                    <th>Department</th>
+                    <th>Public Key Preview</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDIDsList.length === 0 ? (
-                    <tr>
-                      <td colSpan="3" className="empty-table-cell">
-                        <p className="text-muted">No registered identities found on ledger</p>
-                      </td>
+                  {filteredDIDsList.map((didItem) => (
+                    <tr key={didItem.did}>
+                      <td><code>{didItem.did}</code></td>
+                      <td><span className="type-pill">{didItem.role}</span></td>
+                      <td>{didItem.department || 'R&D'}</td>
+                      <td className="text-xs text-muted"><code>{(didItem.publicKey || 'RSA-2048').slice(0, 30)}...</code></td>
+                      <td><span className={`status-pill ${didItem.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{didItem.status}</span></td>
                     </tr>
-                  ) : (
-                    filteredDIDsList.map((item, idx) => (
-                      <tr key={idx}>
-                        <td><code>{item.did}</code></td>
-                        <td><span className={`role-pill role-${(item.role || 'USER').toLowerCase()}`}>{item.role}</span></td>
-                        <td><span className={`status-pill ${item.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{item.status || 'ACTIVE'}</span></td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-
-        {/* TAB 4: Provenance Timeline Inspector */}
-        {activeTab === 'provenance' && (
-          <div className="glass-card card-narrow">
-            <h3 className="card-title">Inspect Token Ownership Provenance</h3>
-            <p className="card-desc">Inspect complete immutable transfer trail for any token ID.</p>
-
-            <form onSubmit={handleViewProvenanceDirect} className="form-layout">
-              <div className="form-group">
-                <label className="label">Token ID:</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={provTokenId}
-                  onChange={(e) => setProvTokenId(e.target.value)}
-                  placeholder="e.g. NFT-2026-PATENT-001"
-                  required
-                />
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-block">
-                Open Provenance Timeline
-              </button>
-            </form>
           </div>
         )}
       </div>

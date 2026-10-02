@@ -39,7 +39,7 @@ test('POST /api/dids/generate-keypair generates RSA keypair', async () => {
 });
 
 test('Identity Endpoints (Create, Get, Update, Verify, Revoke)', async () => {
-    const adminDID = 'did:sih26125:ADMIN01';
+    const adminDID = 'did:sih26125:ADMIN001';
     const userDID = 'did:sih26125:USER01';
 
     // 1. Validation error on missing parameters
@@ -109,7 +109,7 @@ test('Identity Endpoints (Create, Get, Update, Verify, Revoke)', async () => {
 });
 
 test('Role Endpoints (Assign and Get)', async () => {
-    const adminDID = 'did:sih26125:ADMIN_ROLE_TEST';
+    const adminDID = 'did:sih26125:ADMIN001';
     const targetDID = 'did:sih26125:TARGET_USER';
 
     await fetch(`${BASE_URL}/api/dids`, {
@@ -141,7 +141,7 @@ test('Role Endpoints (Assign and Get)', async () => {
 });
 
 test('NFT Endpoints Lifecycle (Mint, Allocate, Transfer, Revoke, Search, History, Verify)', async () => {
-    const adminDID = 'did:sih26125:ADMIN_NFT';
+    const adminDID = 'did:sih26125:ADMIN001';
     const user1DID = 'did:sih26125:USER_NFT1';
     const user2DID = 'did:sih26125:USER_NFT2';
     const tokenId = 'NFT-TEST-100';

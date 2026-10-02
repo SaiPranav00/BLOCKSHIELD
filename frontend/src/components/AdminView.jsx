@@ -102,6 +102,8 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
     }
   };
 
+  const [newDeptInput, setNewDeptInput] = useState('R&D');
+
   const handleCreateDID = async (e) => {
     e.preventDefault();
     if (!newDidInput.trim()) return notify('Please enter a DID identifier', 'error');
@@ -117,8 +119,9 @@ export default function AdminView({ activeDID, notify, onViewProvenance, onMetri
         did: cleanDid,
         publicKey: generatedKey || 'RSA-2048-PUBKEY-AUTO-GEN',
         role: newRoleInput,
+        department: newDeptInput || 'R&D',
       });
-      notify(`Identity ${cleanDid} registered as ${newRoleInput}`, 'success');
+      notify(`Identity ${cleanDid} registered as ${newRoleInput} in ${newDeptInput || 'R&D'}`, 'success');
       setNewDidInput('');
       setGeneratedKey('');
       refreshData();
