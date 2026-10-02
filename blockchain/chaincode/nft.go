@@ -9,22 +9,29 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-// NFT represents a unique digital asset on the Fabric ledger
+// NFT represents a unique tokenized digital/physical asset record on the Fabric ledger.
+// It separates legal ownership (e.g. "BEL") from current custodian assignment.
 type NFT struct {
-	ObjectType string `json:"docType"` // "nft" for CouchDB rich query support
-	TokenID    string `json:"tokenId"`
-	AssetName  string `json:"assetName"`
-	AssetType  string `json:"assetType"`
-	Metadata   string `json:"metadata"`
-	CreatorDID string `json:"creatorDID"`
-	OwnerDID   string `json:"ownerDID"`
-	Status     string `json:"status"` // "ACTIVE", "REVOKED"
-	CreatedAt  string `json:"createdAt"`
-	UpdatedAt  string `json:"updatedAt"`
+	ObjectType   string `json:"docType"`      // "nft" for CouchDB rich query support
+	TokenID      string `json:"tokenId"`      // Unique token ID (e.g. "NFT-1001")
+	AssetID      string `json:"assetId"`      // Physical/Asset registry ID (e.g. "BEL-RF-00421")
+	AssetName    string `json:"assetName"`    // Human readable asset name (e.g. "RF Signal Analyzer")
+	AssetType    string `json:"assetType"`    // Category (e.g. "TESTING_EQUIPMENT", "WORKSTATION", "COMMUNICATION")
+	LegalOwner   string `json:"legalOwner"`   // Legal owner entity (defaults to "BEL")
+	Custodian    string `json:"custodian"`    // Current assigned custodian DID
+	OwnerDID     string `json:"ownerDID"`     // Alias for custodian (for backward compatibility)
+	Department   string `json:"department"`   // Responsible department (e.g. "R&D")
+	Location     string `json:"location"`     // Physical or network location (e.g. "R&D Lab 1")
+	Metadata     string `json:"metadata"`     // Detailed metadata JSON string
+	MetadataHash string `json:"metadataHash"` // Hash or cryptographic reference of metadata
+	CreatorDID   string `json:"creatorDID"`   // Admin DID who minted the token
+	Status       string `json:"status"`       // "REGISTERED", "ACTIVE", "TRANSFER_PENDING", "TRANSFERRED", "REVOKED"
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
 }
 
 // MintNFT creates a new unique NFT record (ADMIN only)
-func (s *SmartContract) MintNFT(ctx contractapi.TransactionContextInterface, adminDID string, tokenId string, assetName string, assetType string, metadata string) (*NFT, error) {
+func (s *SmartContract) MintNFT(ctx contractapi.TransactionContextInterface, adminDID string, tokenId string, assetName string, assetType string, metadata string, targetOwnerDID string) (*NFT, error) {
 	// 1. Enforce ADMIN role check in Chaincode
 	_, err := s.checkAccessInternal(ctx, adminDID, []string{RoleAdmin})
 	if err != nil {
@@ -52,17 +59,61 @@ func (s *SmartContract) MintNFT(ctx contractapi.TransactionContextInterface, adm
 		nowStr = time.Now().UTC().Format(time.RFC3339)
 	}
 
+	initialCustodian := strings.TrimSpace(targetOwnerDID)
+	if initialCustodian == "UNASSIGNED" {
+		initialCustodian = ""
+	}
+
+	status := "REGISTERED"
+	if initialCustodian != "" {
+		status = "ACTIVE"
+	}
+
+	// Extract assetId or department from metadata if formatted as JSON
+	assetId := fmt.Sprintf("BEL-%s-%s", strings.ToUpper(strings.ReplaceAll(assetType, " ", "")), strings.TrimPrefix(tokenId, "NFT-"))
+	department := "R&D"
+	location := "R&D Lab 1"
+	legalOwner := "BEL"
+	metadataHash := ""
+
+	if metadata != "" && strings.HasPrefix(strings.TrimSpace(metadata), "{") {
+		var metaMap map[string]interface{}
+		if err := json.Unmarshal([]byte(metadata), &metaMap); err == nil {
+			if idVal, ok := metaMap["assetId"].(string); ok && idVal != "" {
+				assetId = idVal
+			}
+			if deptVal, ok := metaMap["department"].(string); ok && deptVal != "" {
+				department = deptVal
+			}
+			if locVal, ok := metaMap["location"].(string); ok && locVal != "" {
+				location = locVal
+			}
+			if ownerVal, ok := metaMap["legalOwner"].(string); ok && ownerVal != "" {
+				legalOwner = ownerVal
+			}
+			if hashVal, ok := metaMap["metadataHash"].(string); ok && hashVal != "" {
+				metadataHash = hashVal
+			}
+		}
+	}
+
 	nft := NFT{
-		ObjectType: "nft",
-		TokenID:    tokenId,
-		AssetName:  assetName,
-		AssetType:  strings.ToUpper(assetType),
-		Metadata:   metadata,
-		CreatorDID: adminDID,
-		OwnerDID:   "", // Unassigned before allocation
-		Status:     "ACTIVE",
-		CreatedAt:  nowStr,
-		UpdatedAt:  nowStr,
+		ObjectType:   "nft",
+		TokenID:      tokenId,
+		AssetID:      assetId,
+		AssetName:    assetName,
+		AssetType:    strings.ToUpper(assetType),
+		LegalOwner:   legalOwner,
+		Custodian:    initialCustodian,
+		OwnerDID:     initialCustodian,
+		Department:   department,
+		Location:     location,
+		Metadata:     metadata,
+		MetadataHash: metadataHash,
+		CreatorDID:   adminDID,
+		Status:       status,
+		CreatedAt:    nowStr,
+		UpdatedAt:    nowStr,
 	}
 
 	nftJSON, err := json.Marshal(nft)
@@ -76,11 +127,11 @@ func (s *SmartContract) MintNFT(ctx contractapi.TransactionContextInterface, adm
 		return nil, err
 	}
 
-	_ = s.RecordAuditEvent(ctx, adminDID, "MINT_NFT", tokenId, "ALLOWED", fmt.Sprintf("Minted NFT '%s' (%s)", assetName, assetType))
+	_ = s.RecordAuditEvent(ctx, adminDID, "ASSET_MINTED", tokenId, "ALLOWED", fmt.Sprintf("Minted tokenized asset '%s' (%s), Legal Owner: %s, Custodian: %s", assetName, assetType, legalOwner, initialCustodian))
 	return &nft, nil
 }
 
-// AllocateNFT assigns an unallocated or owned NFT to a target DID (ADMIN or MANAGER)
+// AllocateNFT assigns an unallocated or owned asset to a target DID custodian (ADMIN or MANAGER)
 func (s *SmartContract) AllocateNFT(ctx contractapi.TransactionContextInterface, actorDID string, tokenId string, ownerDID string) (*NFT, error) {
 	// 1. Permission check (ADMIN or MANAGER)
 	_, err := s.checkAccessInternal(ctx, actorDID, []string{RoleAdmin, RoleManager})
@@ -116,8 +167,14 @@ func (s *SmartContract) AllocateNFT(ctx contractapi.TransactionContextInterface,
 		return nil, fmt.Errorf(errMsg)
 	}
 
-	// 4. Update owner
+	// 4. Update custodian and department
+	nft.Custodian = ownerDID
 	nft.OwnerDID = ownerDID
+	if targetIdentity.Department != "" {
+		nft.Department = targetIdentity.Department
+	}
+	nft.Status = "ACTIVE"
+
 	txTimestamp, err := ctx.GetStub().GetTxTimestamp()
 	if err == nil && txTimestamp != nil {
 		nft.UpdatedAt = time.Unix(txTimestamp.Seconds, int64(txTimestamp.Nanos)).UTC().Format(time.RFC3339)
@@ -135,51 +192,62 @@ func (s *SmartContract) AllocateNFT(ctx contractapi.TransactionContextInterface,
 		return nil, err
 	}
 
-	_ = s.RecordAuditEvent(ctx, actorDID, "ALLOCATE_NFT", tokenId, "ALLOWED", fmt.Sprintf("Allocated NFT %s to DID %s", tokenId, ownerDID))
+	_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_ALLOCATED", tokenId, "ALLOWED", fmt.Sprintf("Allocated asset %s custodian to DID %s", tokenId, ownerDID))
 	return nft, nil
 }
 
-// TransferNFT moves ownership of an active NFT to a new active owner DID
+// TransferNFT moves custodian assignment of an active asset to a new custodian DID (Direct transfer by ADMIN/MANAGER)
 func (s *SmartContract) TransferNFT(ctx contractapi.TransactionContextInterface, actorDID string, tokenId string, newOwnerDID string) (*NFT, error) {
 	// 1. Retrieve NFT
 	nft, err := s.GetNFT(ctx, tokenId)
 	if err != nil {
-		_ = s.RecordAuditEvent(ctx, actorDID, "TRANSFER_NFT", tokenId, "DENIED", err.Error())
+		_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_TRANSFERRED", tokenId, "DENIED", err.Error())
 		return nil, err
 	}
 
-	if nft.Status != "ACTIVE" {
-		errMsg := fmt.Sprintf("cannot transfer NFT %s with status %s", tokenId, nft.Status)
-		_ = s.RecordAuditEvent(ctx, actorDID, "TRANSFER_NFT", tokenId, "DENIED", errMsg)
+	if nft.Status == "REVOKED" {
+		errMsg := fmt.Sprintf("cannot transfer asset %s with status %s", tokenId, nft.Status)
+		_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_TRANSFERRED", tokenId, "DENIED", errMsg)
 		return nil, fmt.Errorf(errMsg)
 	}
 
-	// 2. Authorization check: Actor must be current owner, ADMIN, or MANAGER
-	if actorDID != nft.OwnerDID {
+	// 2. Authorization check: Actor must be current custodian, ADMIN, or MANAGER
+	currentCustodian := nft.Custodian
+	if currentCustodian == "" {
+		currentCustodian = nft.OwnerDID
+	}
+
+	if actorDID != currentCustodian {
 		actorIdentity, err := s.GetDID(ctx, actorDID)
 		if err != nil || (actorIdentity.Role != RoleAdmin && actorIdentity.Role != RoleManager) {
-			errMsg := fmt.Sprintf("actor DID %s is not current owner (%s), ADMIN, nor MANAGER", actorDID, nft.OwnerDID)
-			_ = s.RecordAuditEvent(ctx, actorDID, "TRANSFER_NFT", tokenId, "DENIED", errMsg)
+			errMsg := fmt.Sprintf("actor DID %s is not current custodian (%s), ADMIN, nor MANAGER", actorDID, currentCustodian)
+			_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_TRANSFERRED", tokenId, "DENIED", errMsg)
 			return nil, fmt.Errorf(errMsg)
 		}
 	}
 
-	// 3. Verify new owner DID exists and is ACTIVE
+	// 3. Verify new custodian DID exists and is ACTIVE
 	newOwnerIdentity, err := s.GetDID(ctx, newOwnerDID)
 	if err != nil {
-		errMsg := fmt.Sprintf("new owner DID %s does not exist", newOwnerDID)
-		_ = s.RecordAuditEvent(ctx, actorDID, "TRANSFER_NFT", tokenId, "DENIED", errMsg)
+		errMsg := fmt.Sprintf("new custodian DID %s does not exist", newOwnerDID)
+		_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_TRANSFERRED", tokenId, "DENIED", errMsg)
 		return nil, fmt.Errorf(errMsg)
 	}
 	if newOwnerIdentity.Status != "ACTIVE" {
-		errMsg := fmt.Sprintf("new owner DID %s is %s", newOwnerDID, newOwnerIdentity.Status)
-		_ = s.RecordAuditEvent(ctx, actorDID, "TRANSFER_NFT", tokenId, "DENIED", errMsg)
+		errMsg := fmt.Sprintf("new custodian DID %s is %s", newOwnerDID, newOwnerIdentity.Status)
+		_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_TRANSFERRED", tokenId, "DENIED", errMsg)
 		return nil, fmt.Errorf(errMsg)
 	}
 
-	// 4. Update owner & timestamp
-	oldOwner := nft.OwnerDID
+	// 4. Update custodian & timestamp
+	oldCustodian := currentCustodian
+	nft.Custodian = newOwnerDID
 	nft.OwnerDID = newOwnerDID
+	if newOwnerIdentity.Department != "" {
+		nft.Department = newOwnerIdentity.Department
+	}
+	nft.Status = "ACTIVE"
+
 	txTimestamp, err := ctx.GetStub().GetTxTimestamp()
 	if err == nil && txTimestamp != nil {
 		nft.UpdatedAt = time.Unix(txTimestamp.Seconds, int64(txTimestamp.Nanos)).UTC().Format(time.RFC3339)
@@ -197,23 +265,23 @@ func (s *SmartContract) TransferNFT(ctx contractapi.TransactionContextInterface,
 		return nil, err
 	}
 
-	_ = s.RecordAuditEvent(ctx, actorDID, "TRANSFER_NFT", tokenId, "ALLOWED", fmt.Sprintf("Transferred NFT %s from %s to %s", tokenId, oldOwner, newOwnerDID))
+	_ = s.RecordAuditEvent(ctx, actorDID, "ASSET_TRANSFERRED", tokenId, "ALLOWED", fmt.Sprintf("Transferred asset %s custodian from %s to %s", tokenId, oldCustodian, newOwnerDID))
 	return nft, nil
 }
 
-// RevokeNFT marks an NFT as REVOKED (ADMIN only)
+// RevokeNFT marks an asset token as REVOKED (ADMIN only)
 func (s *SmartContract) RevokeNFT(ctx contractapi.TransactionContextInterface, adminDID string, tokenId string) (*NFT, error) {
 	// 1. Enforce ADMIN role
 	_, err := s.checkAccessInternal(ctx, adminDID, []string{RoleAdmin})
 	if err != nil {
-		_ = s.RecordAuditEvent(ctx, adminDID, "REVOKE_NFT", tokenId, "DENIED", err.Error())
+		_ = s.RecordAuditEvent(ctx, adminDID, "ASSET_REVOKED", tokenId, "DENIED", err.Error())
 		return nil, err
 	}
 
 	// 2. Get NFT
 	nft, err := s.GetNFT(ctx, tokenId)
 	if err != nil {
-		_ = s.RecordAuditEvent(ctx, adminDID, "REVOKE_NFT", tokenId, "DENIED", err.Error())
+		_ = s.RecordAuditEvent(ctx, adminDID, "ASSET_REVOKED", tokenId, "DENIED", err.Error())
 		return nil, err
 	}
 
@@ -235,15 +303,15 @@ func (s *SmartContract) RevokeNFT(ctx contractapi.TransactionContextInterface, a
 		return nil, err
 	}
 
-	_ = s.RecordAuditEvent(ctx, adminDID, "REVOKE_NFT", tokenId, "ALLOWED", fmt.Sprintf("NFT %s revoked", tokenId))
+	_ = s.RecordAuditEvent(ctx, adminDID, "ASSET_REVOKED", tokenId, "ALLOWED", fmt.Sprintf("Asset token %s revoked", tokenId))
 	return nft, nil
 }
 
-// VerifyNFT validates NFT existence, status, and owner status, returning JSON string
+// VerifyNFT validates asset existence, status, legal owner, and custodian status
 func (s *SmartContract) VerifyNFT(ctx contractapi.TransactionContextInterface, tokenId string) (string, error) {
 	nft, err := s.GetNFT(ctx, tokenId)
 	if err != nil {
-		return `{"valid":false,"exists":false,"reason":"NFT does not exist"}`, nil
+		return `{"valid":false,"exists":false,"reason":"Asset token does not exist on ledger"}`, nil
 	}
 
 	if nft.Status == "REVOKED" {
@@ -251,51 +319,74 @@ func (s *SmartContract) VerifyNFT(ctx contractapi.TransactionContextInterface, t
 			"valid":      false,
 			"exists":     true,
 			"tokenId":    nft.TokenID,
+			"assetId":    nft.AssetID,
 			"assetName":  nft.AssetName,
 			"assetType":  nft.AssetType,
+			"legalOwner": nft.LegalOwner,
+			"custodian":  nft.Custodian,
 			"ownerDID":   nft.OwnerDID,
 			"creatorDID": nft.CreatorDID,
 			"status":     "REVOKED",
-			"reason":     "NFT status is REVOKED",
+			"reason":     "Asset token status is REVOKED",
 		}
 		bytes, _ := json.Marshal(resMap)
 		return string(bytes), nil
 	}
 
-	ownerStatus := "ACTIVE"
-	if nft.OwnerDID != "" {
-		ownerIdentity, err := s.GetDID(ctx, nft.OwnerDID)
+	custodianStatus := "ACTIVE"
+	custodianDID := nft.Custodian
+	if custodianDID == "" {
+		custodianDID = nft.OwnerDID
+	}
+
+	if custodianDID != "" {
+		custodianIdentity, err := s.GetDID(ctx, custodianDID)
 		if err != nil {
-			ownerStatus = "NOT_FOUND"
+			custodianStatus = "NOT_FOUND"
 		} else {
-			ownerStatus = ownerIdentity.Status
+			custodianStatus = custodianIdentity.Status
 		}
 	}
 
-	valid := nft.Status == "ACTIVE" && (ownerStatus == "ACTIVE" || nft.OwnerDID == "")
+	valid := (nft.Status == "ACTIVE" || nft.Status == "REGISTERED" || nft.Status == "TRANSFERRED" || nft.Status == "TRANSFER_PENDING") && (custodianStatus == "ACTIVE" || custodianDID == "")
 
 	resMap := map[string]interface{}{
-		"valid":       valid,
-		"exists":      true,
-		"tokenId":     nft.TokenID,
-		"assetName":   nft.AssetName,
-		"assetType":   nft.AssetType,
-		"metadata":    nft.Metadata,
-		"ownerDID":    nft.OwnerDID,
-		"ownerStatus": ownerStatus,
-		"creatorDID":  nft.CreatorDID,
-		"status":      nft.Status,
+		"valid":           valid,
+		"exists":          true,
+		"tokenId":         nft.TokenID,
+		"assetId":         nft.AssetID,
+		"assetName":       nft.AssetName,
+		"assetType":       nft.AssetType,
+		"legalOwner":      nft.LegalOwner,
+		"custodian":       custodianDID,
+		"ownerDID":        custodianDID,
+		"custodianStatus": custodianStatus,
+		"department":      nft.Department,
+		"location":        nft.Location,
+		"metadata":        nft.Metadata,
+		"metadataHash":    nft.MetadataHash,
+		"creatorDID":      nft.CreatorDID,
+		"status":          nft.Status,
 	}
 	bytes, _ := json.Marshal(resMap)
 	return string(bytes), nil
 }
 
-// GetAssetsByOwnerDID returns all NFTs owned by a given DID
+// GetAssetsByOwnerDID returns all NFTs where DID is custodian
 func (s *SmartContract) GetAssetsByOwnerDID(ctx contractapi.TransactionContextInterface, ownerDID string) ([]*NFT, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType":"nft","ownerDID":"%s"}}`, ownerDID)
+	return s.GetAssetsByCustodianDID(ctx, ownerDID)
+}
+
+// GetAssetsByCustodianDID returns all NFTs where DID is custodian
+func (s *SmartContract) GetAssetsByCustodianDID(ctx contractapi.TransactionContextInterface, custodianDID string) ([]*NFT, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"nft","$or":[{"custodian":"%s"},{"ownerDID":"%s"}]}}`, custodianDID, custodianDID)
 	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
 	if err != nil {
-		return nil, err
+		// Fallback query
+		resultsIterator, err = ctx.GetStub().GetStateByRange("NFT-", "NFT-\uffff")
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer resultsIterator.Close()
 
@@ -311,7 +402,41 @@ func (s *SmartContract) GetAssetsByOwnerDID(ctx contractapi.TransactionContextIn
 		if err != nil {
 			continue
 		}
-		nfts = append(nfts, &nft)
+		if nft.Custodian == custodianDID || nft.OwnerDID == custodianDID {
+			nfts = append(nfts, &nft)
+		}
+	}
+
+	return nfts, nil
+}
+
+// GetAssetsByDepartment returns all NFTs assigned to a department
+func (s *SmartContract) GetAssetsByDepartment(ctx contractapi.TransactionContextInterface, department string) ([]*NFT, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"nft","department":"%s"}}`, department)
+	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
+	if err != nil {
+		resultsIterator, err = ctx.GetStub().GetStateByRange("NFT-", "NFT-\uffff")
+		if err != nil {
+			return nil, err
+		}
+	}
+	defer resultsIterator.Close()
+
+	var nfts []*NFT
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var nft NFT
+		err = json.Unmarshal(queryResponse.Value, &nft)
+		if err != nil {
+			continue
+		}
+		if strings.EqualFold(nft.Department, department) {
+			nfts = append(nfts, &nft)
+		}
 	}
 
 	return nfts, nil
@@ -360,13 +485,20 @@ func (s *SmartContract) GetNFT(ctx contractapi.TransactionContextInterface, toke
 		return nil, fmt.Errorf("failed to read NFT from world state: %v", err)
 	}
 	if nftJSON == nil {
-		return nil, fmt.Errorf("NFT %s does not exist", tokenId)
+		return nil, fmt.Errorf("NFT asset %s does not exist", tokenId)
 	}
 
 	var nft NFT
 	err = json.Unmarshal(nftJSON, &nft)
 	if err != nil {
 		return nil, err
+	}
+
+	if nft.Custodian == "" && nft.OwnerDID != "" {
+		nft.Custodian = nft.OwnerDID
+	}
+	if nft.LegalOwner == "" {
+		nft.LegalOwner = "BEL"
 	}
 
 	return &nft, nil
@@ -406,6 +538,12 @@ func (s *SmartContract) GetAllNFTs(ctx contractapi.TransactionContextInterface) 
 			continue
 		}
 		if nft.ObjectType == "nft" || strings.HasPrefix(nft.TokenID, "NFT-") {
+			if nft.Custodian == "" && nft.OwnerDID != "" {
+				nft.Custodian = nft.OwnerDID
+			}
+			if nft.LegalOwner == "" {
+				nft.LegalOwner = "BEL"
+			}
 			nfts = append(nfts, &nft)
 		}
 	}
