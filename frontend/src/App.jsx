@@ -164,22 +164,24 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${currentView === 'PORTAL' ? 'portal-app-wrapper' : ''}`}>
       {/* Toast Alert Notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Global Header Bar */}
-      <Header
-        systemStatus={systemStatus}
-        activeRole={activeRole}
-        currentView={currentView}
-        onReturnHome={handleReturnHome}
-        onSelectRole={handleSelectRoleFromPortal}
-        onOpenCommChannel={() => setShowCommChannel(true)}
-        authUser={authUser}
-        onLogout={handleLogout}
-        unreadCount={unreadCount}
-      />
+      {/* Global Header Bar (Shown when inside a workspace or dedicated page) */}
+      {currentView !== 'PORTAL' && (
+        <Header
+          systemStatus={systemStatus}
+          activeRole={activeRole}
+          currentView={currentView}
+          onReturnHome={handleReturnHome}
+          onSelectRole={handleSelectRoleFromPortal}
+          onOpenCommChannel={() => setShowCommChannel(true)}
+          authUser={authUser}
+          onLogout={handleLogout}
+          unreadCount={unreadCount}
+        />
+      )}
 
       {/* Main Viewport */}
       <main className="main-viewport">
@@ -189,6 +191,8 @@ function App() {
             metrics={metrics}
             systemStatus={systemStatus}
             onSelectRole={handleSelectRoleFromPortal}
+            authUser={authUser}
+            onLogout={handleLogout}
           />
         )}
 
