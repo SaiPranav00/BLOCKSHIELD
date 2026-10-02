@@ -1,9 +1,19 @@
 import React from 'react';
 
 export default function CentralPortal({ metrics, systemStatus, onSelectRole }) {
-  // Only the 3 non-admin roles are shown on the standard user portal landing
-  // Admin is hosted isolated on dedicated Port 5174
+  // All 4 organization roles are accessible directly from the central portal landing
   const roles = [
+    {
+      id: 'ADMIN',
+      title: 'Admin Security Portal',
+      subtitle: 'DID & System Governance',
+      desc: 'Create verifiable DIDs, manage organizational roles, approve pending user registrations, and oversee chaincode operations.',
+      badge: 'Admin',
+      port: '5174',
+      symbol: '🛡️',
+      accentClass: 'role-card-admin',
+      symbolClass: 'symbol-admin',
+    },
     {
       id: 'MANAGER',
       title: 'Manager Portal',
@@ -11,7 +21,7 @@ export default function CentralPortal({ metrics, systemStatus, onSelectRole }) {
       desc: 'Allocate unassigned assets, execute assisted transfers, and verify tokens across organization users.',
       badge: 'Manager',
       port: '5175',
-      symbol: 'M',
+      symbol: '💼',
       accentClass: 'role-card-manager',
       symbolClass: 'symbol-manager',
     },
@@ -22,7 +32,7 @@ export default function CentralPortal({ metrics, systemStatus, onSelectRole }) {
       desc: 'Review immutable ledger audit logs, inspect identity compliance registry, and trace asset provenance.',
       badge: 'Auditor',
       port: '5176',
-      symbol: 'A',
+      symbol: '🔍',
       accentClass: 'role-card-auditor',
       symbolClass: 'symbol-auditor',
     },
@@ -33,7 +43,7 @@ export default function CentralPortal({ metrics, systemStatus, onSelectRole }) {
       desc: 'Manage personal digital asset portfolio, execute self-transfers, and verify certificate authenticity on-chain.',
       badge: 'User',
       port: '5173',
-      symbol: 'U',
+      symbol: '👤',
       accentClass: 'role-card-user',
       symbolClass: 'symbol-user',
     },
@@ -89,8 +99,8 @@ export default function CentralPortal({ metrics, systemStatus, onSelectRole }) {
         </div>
       </div>
 
-      {/* 3 Role Portal Cards Grid (Manager, Auditor, User) */}
-      <div className="roles-grid-3">
+      {/* 4 Role Portal Cards Grid (Admin, Manager, Auditor, User) */}
+      <div className="roles-grid-4">
         {roles.map((r) => (
           <div
             key={r.id}

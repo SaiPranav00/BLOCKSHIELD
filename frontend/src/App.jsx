@@ -174,6 +174,7 @@ function App() {
         activeRole={activeRole}
         currentView={currentView}
         onReturnHome={handleReturnHome}
+        onSelectRole={handleSelectRoleFromPortal}
         onOpenCommChannel={() => setShowCommChannel(true)}
         authUser={authUser}
         onLogout={handleLogout}

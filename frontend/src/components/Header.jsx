@@ -6,6 +6,7 @@ export default function Header({
   activeRole,
   currentView,
   onReturnHome,
+  onSelectRole,
   onOpenCommChannel,
   authUser,
   onLogout,
@@ -39,6 +40,50 @@ export default function Header({
             <p className="brand-subtitle">Hyperledger Fabric Ledger &amp; DID System</p>
           </div>
         </div>
+
+        {/* Quick Role Navigation Tab Bar */}
+        <nav className="header-role-nav">
+          <button
+            type="button"
+            className={`nav-role-btn ${currentView === 'PORTAL' ? 'active' : ''}`}
+            onClick={onReturnHome}
+            title="Return to Central Portals Landing"
+          >
+            🌐 Portal Home
+          </button>
+          <button
+            type="button"
+            className={`nav-role-btn nav-admin ${currentView === 'ADMIN' ? 'active' : ''}`}
+            onClick={() => onSelectRole && onSelectRole('ADMIN')}
+            title="Switch to Admin Security Portal"
+          >
+            🛡️ Admin
+          </button>
+          <button
+            type="button"
+            className={`nav-role-btn nav-manager ${currentView === 'MANAGER' ? 'active' : ''}`}
+            onClick={() => onSelectRole && onSelectRole('MANAGER')}
+            title="Switch to Manager Portal"
+          >
+            💼 Manager
+          </button>
+          <button
+            type="button"
+            className={`nav-role-btn nav-auditor ${currentView === 'AUDITOR' ? 'active' : ''}`}
+            onClick={() => onSelectRole && onSelectRole('AUDITOR')}
+            title="Switch to Auditor Portal"
+          >
+            🔍 Auditor
+          </button>
+          <button
+            type="button"
+            className={`nav-role-btn nav-user ${currentView === 'USER' ? 'active' : ''}`}
+            onClick={() => onSelectRole && onSelectRole('USER')}
+            title="Switch to User Portal"
+          >
+            👤 User
+          </button>
+        </nav>
       </div>
 
       <div className="header-meta">
