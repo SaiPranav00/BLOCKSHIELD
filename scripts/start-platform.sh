@@ -20,12 +20,8 @@ while true; do
 
     case $choice in
         1)
-            echo "Starting full platform..."
-            "${PROJECT_ROOT}/scripts/network-up.sh"
-            "${PROJECT_ROOT}/scripts/deploy-chaincode.sh"
-            "${PROJECT_ROOT}/scripts/bootstrap.sh"
-            "${PROJECT_ROOT}/scripts/test-all.sh"
-            read -p "Done! Press Enter..."
+            echo "Starting full platform with intelligent setup..."
+            "${PROJECT_ROOT}/start.sh"
             ;;
         2)
             "${PROJECT_ROOT}/scripts/network-up.sh"

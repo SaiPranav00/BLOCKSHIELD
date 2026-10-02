@@ -101,38 +101,45 @@ Go Smart Contract / Chaincode (`sih26125`)
 
 ## 4. Quick Start & Execution Guide
 
-### Prerequisites
-- Docker & Docker Compose v2+
-- Go 1.22+
-- Node.js v18+ & npm
+### One-Command Smart Master Startup (Recommended)
+Run this single command from project root (`/home/lucky/Documents/blocksheild/BLOCKSHIELD`) on **any laptop/machine**:
 
-### Step 1: Start Hyperledger Fabric Network & Deploy Chaincode
-From project root (`/home/lucky/Documents/blocksheild/BLOCKSHIELD`):
+```bash
+./start.sh
+```
+
+**What `./start.sh` automatically does for you:**
+1. Checks system prerequisites (Docker, Node.js, Go, npm).
+2. Auto-downloads missing Hyperledger Fabric 2.5 binaries and `fabric-samples` if running on a fresh machine.
+3. Auto-installs missing `npm` dependencies for both `backend` and `frontend`.
+4. Starts the Hyperledger Fabric blockchain network, CouchDB, and deploys the Go smart contract (`sih26125`).
+5. Seeds initial bootstrap DIDs, BEL defense electronics assets, allocations, and transfer requests.
+6. Starts the Node.js Express REST API server in the background.
+7. Launches the React Frontend UI dashboard on `http://localhost:5173`.
+
+---
+
+### Manual Step-by-Step Execution (Alternative)
+
+#### Step 1: Start Network & Deploy Chaincode
 ```bash
 ./scripts/network-up.sh
 ```
 
-### Step 2: Seed Initial Bootstrap Demo Data
+#### Step 2: Seed Initial Bootstrap Demo Data
 ```bash
 ./scripts/bootstrap.sh
 ```
 
-### Step 3: Start Node.js REST API Backend
+#### Step 3: Start Node.js REST API Backend
 ```bash
-cd backend
-npm install
-npm start
+cd backend && npm install && npm start
 ```
-*Backend API server runs live on `http://localhost:5000`.*
 
-### Step 4: Start React Frontend UI
-In a separate terminal:
+#### Step 4: Start React Frontend UI
 ```bash
-cd frontend
-npm install
-npm run dev
+cd frontend && npm install && npm run dev
 ```
-*Frontend opens at `http://localhost:5173`.*
 
 ---
 
