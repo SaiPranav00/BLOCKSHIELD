@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   getAssetsByOwner,
-  transferNFT,
+  createTransferRequest,
+  getTransferRequestsByDID,
   verifyNFT,
   getAllNFTs,
   getAllDIDs,
@@ -10,12 +11,14 @@ import {
 export default function UserView({ activeDID, notify, onViewProvenance }) {
   const [activeTab, setActiveTab] = useState('my-assets');
   const [myAssets, setMyAssets] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
   const [allNfts, setAllNfts] = useState([]);
   const [allDids, setAllDids] = useState([]);
 
-  // Transfer Form
+  // Transfer Request Form
   const [transTokenId, setTransTokenId] = useState('');
   const [transRecipientDid, setTransRecipientDid] = useState('');
+  const [transReason, setTransReason] = useState('');
 
   // Verify Form
   const [verifyTokenId, setVerifyTokenId] = useState('');
@@ -23,8 +26,9 @@ export default function UserView({ activeDID, notify, onViewProvenance }) {
 
   const refreshUserData = async () => {
     try {
-      const [myRes, allNftsRes, didsRes] = await Promise.allSettled([
+      const [myRes, requestsRes, allNftsRes, didsRes] = await Promise.allSettled([
         getAssetsByOwner(activeDID),
+        getTransferRequestsByDID(activeDID),
         getAllNFTs(),
         getAllDIDs(),
       ]);
@@ -32,6 +36,10 @@ export default function UserView({ activeDID, notify, onViewProvenance }) {
       if (myRes.status === 'fulfilled') {
         const data = myRes.value?.data || myRes.value || [];
         setMyAssets(Array.isArray(data) ? data : []);
+      }
+      if (requestsRes.status === 'fulfilled') {
+        const data = requestsRes.value?.data || requestsRes.value || [];
+        setMyRequests(Array.isArray(data) ? data : []);
       }
       if (allNftsRes.status === 'fulfilled') {
         const data = allNftsRes.value?.data || allNftsRes.value || [];
@@ -69,24 +77,28 @@ export default function UserView({ activeDID, notify, onViewProvenance }) {
     return clean;
   };
 
-  const handleSelfTransfer = async (e) => {
+  const handleCreateRequest = async (e) => {
     e.preventDefault();
     if (!transTokenId.trim() || !transRecipientDid.trim()) {
-      return notify('Please enter Token ID and Recipient DID', 'error');
+      return notify('Please select/enter Token ID and Target Custodian DID', 'error');
     }
 
     const cleanToken = sanitizeTokenId(transTokenId);
     const cleanRecipient = sanitizeDID(transRecipientDid);
 
     try {
-      await transferNFT(cleanToken, {
-        actorDID: activeDID,
-        newOwnerDID: cleanRecipient,
+      await createTransferRequest({
+        requestedByDID: activeDID,
+        tokenId: cleanToken,
+        toDID: cleanRecipient,
+        reason: transReason || 'Custodial transfer request for project deployment'
       });
-      notify(`Successfully transferred asset ${cleanToken} to ${cleanRecipient}`, 'success');
+      notify(`Submitted custodian transfer request for asset ${cleanToken} to Manager approval`, 'success');
       setTransTokenId('');
       setTransRecipientDid('');
+      setTransReason('');
       refreshUserData();
+      setActiveTab('my-requests');
     } catch (err) {
       const errMsg = err.message || '';
       const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
@@ -105,9 +117,9 @@ export default function UserView({ activeDID, notify, onViewProvenance }) {
       const result = res?.data || res;
       setVerifyResult(result);
       if (result.valid) {
-        notify(`NFT ${cleanToken} is authentic and active`, 'success');
+        notify(`Asset ${cleanToken} is authentic and active on Fabric ledger`, 'success');
       } else {
-        notify(`NFT verification failed: ${result.reason || 'Invalid token'}`, 'error');
+        notify(`Asset verification alert: ${result.reason || 'Invalid asset state'}`, 'error');
       }
     } catch (err) {
       const errMsg = err.message || '';
@@ -121,208 +133,255 @@ export default function UserView({ activeDID, notify, onViewProvenance }) {
       <div className="sub-nav">
         <button
           className={`sub-tab ${activeTab === 'my-assets' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('my-assets'); refreshUserData(); }}
+          onClick={() => setActiveTab('my-assets')}
         >
-          My Assets ({myAssets.length})
+          1. Assigned Assets ({myAssets.length})
         </button>
         <button
-          className={`sub-tab ${activeTab === 'transfer' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('transfer'); refreshUserData(); }}
+          className={`sub-tab ${activeTab === 'request-transfer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('request-transfer')}
         >
-          Transfer Asset
+          2. Request Custody Transfer
         </button>
         <button
-          className={`sub-tab ${activeTab === 'verify' ? 'active' : ''}`}
-          onClick={() => setActiveTab('verify')}
+          className={`sub-tab ${activeTab === 'my-requests' ? 'active' : ''}`}
+          onClick={() => setActiveTab('my-requests')}
         >
-          Verify Authenticity
+          3. My Transfer Workflow ({myRequests.length})
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'verify-token' ? 'active' : ''}`}
+          onClick={() => setActiveTab('verify-token')}
+        >
+          4. Verify Asset Authenticity
         </button>
       </div>
 
       <div className="dashboard-content">
-        {/* TAB 1: My Owned Assets */}
+        {/* TAB 1: Assigned Assets */}
         {activeTab === 'my-assets' && (
           <div className="glass-card">
             <div className="flex-between card-header-row mb-3">
-              <div>
-                <h3 className="card-title">Digital Assets Portfolio</h3>
-                <p className="card-desc">Active Account Identity: <code>{activeDID}</code></p>
-              </div>
-              <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh Portfolio</button>
+              <h3 className="card-title">Assets Assigned to Your Custody</h3>
+              <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh</button>
             </div>
 
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Token ID</th>
-                    <th>Asset Title</th>
-                    <th>Asset Type</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {myAssets.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="empty-table-cell">
-                        <div className="empty-state-box">
-                          <p>No digital assets allocated to {activeDID} yet.</p>
-                          <p className="text-xs text-muted mt-1">Assets allocated by Managers will appear here automatically.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    myAssets.map((item, idx) => (
-                      <tr key={idx}>
-                        <td><code>{item.tokenId}</code></td>
-                        <td>{item.assetName}</td>
-                        <td><span className="type-pill">{item.assetType}</span></td>
-                        <td><span className="status-pill status-active">{item.status || 'ACTIVE'}</span></td>
-                        <td>
-                          <div className="action-buttons-cell">
-                            <button
-                              className="btn btn-xs btn-outline"
-                              onClick={() => {
-                                setTransTokenId(item.tokenId);
-                                setActiveTab('transfer');
-                              }}
-                            >
-                              Transfer
-                            </button>
-                            <button className="btn btn-xs btn-secondary" onClick={() => onViewProvenance(item.tokenId)}>
-                              Provenance
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {myAssets.length === 0 ? (
+              <div className="empty-state-box py-5">
+                <p className="text-muted">No digital or physical assets are currently assigned to DID <code>{activeDID}</code>.</p>
+              </div>
+            ) : (
+              <div className="grid grid-3">
+                {myAssets.map((asset, index) => {
+                  const isPending = asset.status === 'TRANSFER_PENDING';
+                  return (
+                    <div key={asset.tokenId || index} className="asset-card">
+                      <div className="asset-header">
+                        <span className="type-pill">{asset.assetType || 'EQUIPMENT'}</span>
+                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : isPending ? 'status-pending' : 'status-revoked'}`}>
+                          {asset.status || 'ACTIVE'}
+                        </span>
+                      </div>
+                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
+                      <p className="asset-id">Token: <code>{asset.tokenId}</code></p>
+                      {asset.assetId && <p className="asset-id">Asset Registry ID: <code>{asset.assetId}</code></p>}
+                      <div className="asset-meta text-xs my-2">
+                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
+                        <p><strong>Department / Location:</strong> {asset.department || 'R&D'} - {asset.location || 'Lab 1'}</p>
+                      </div>
+                      <div className="flex-between mt-3">
+                        <button
+                          className="btn btn-xs btn-secondary"
+                          onClick={() => onViewProvenance(asset.tokenId)}
+                        >
+                          View History
+                        </button>
+                        <button
+                          className="btn btn-xs btn-outline"
+                          disabled={isPending}
+                          onClick={() => {
+                            setTransTokenId(asset.tokenId);
+                            setActiveTab('request-transfer');
+                          }}
+                        >
+                          {isPending ? 'Transfer Pending' : 'Request Transfer'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* TAB 2: Transfer My Asset */}
-        {activeTab === 'transfer' && (
-          <div className="glass-card card-narrow">
-            <div className="card-header-styled">
-              <div>
-                <h3 className="card-title">Transfer Asset Ownership</h3>
-                <p className="card-desc">Transfer ownership of your tokenized asset to a recipient DID.</p>
-              </div>
-            </div>
+        {/* TAB 2: Request Custody Transfer */}
+        {activeTab === 'request-transfer' && (
+          <div className="glass-card max-w-xl mx-auto">
+            <h3 className="card-title mb-2">Initiate Custodian Transfer Request</h3>
+            <p className="text-sm text-muted mb-4">
+              As per enterprise security policy, custody transfers require Manager approval. Submitting this request creates an immutable <code>TRANSFER_REQUESTED</code> event on the ledger.
+            </p>
 
-            <form onSubmit={handleSelfTransfer} className="form-layout">
+            <form onSubmit={handleCreateRequest} className="form-grid">
               <div className="form-group">
-                <label className="label">Select or Enter Token ID:</label>
-                {myAssets.length > 0 ? (
-                  <select
-                    className="input"
-                    value={transTokenId}
-                    onChange={(e) => setTransTokenId(e.target.value)}
-                  >
-                    <option value="">-- Select Owned Asset --</option>
-                    {myAssets.map((item, idx) => (
-                      <option key={idx} value={item.tokenId}>
-                        {item.tokenId} - {item.assetName}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
+                <label className="label">Select/Enter Asset Token ID *</label>
                 <input
                   type="text"
-                  className="input mt-2"
+                  className="input"
+                  placeholder="e.g. NFT-1001"
                   value={transTokenId}
                   onChange={(e) => setTransTokenId(e.target.value)}
-                  placeholder="Or type Token ID (e.g. NFT-2026-PATENT-001)..."
                   required
                 />
+                {myAssets.length > 0 && (
+                  <div className="mt-1 flex-gap flex-wrap">
+                    <span className="text-xs text-muted">Quick select:</span>
+                    {myAssets.map(a => (
+                      <button
+                        key={a.tokenId}
+                        type="button"
+                        className="btn btn-xs btn-outline"
+                        onClick={() => setTransTokenId(a.tokenId)}
+                      >
+                        {a.tokenId} ({a.assetName})
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
-                <label className="label">Recipient DID:</label>
-                {allDids.length > 0 ? (
-                  <select
-                    className="input"
-                    value={transRecipientDid}
-                    onChange={(e) => setTransRecipientDid(e.target.value)}
-                  >
-                    <option value="">-- Select Recipient from Directory --</option>
-                    {allDids.filter(d => d.did !== activeDID && d.status !== 'REVOKED').map((d, idx) => (
-                      <option key={idx} value={d.did}>
-                        {d.did} [{d.role}]
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
+                <label className="label">Target Custodian DID *</label>
                 <input
                   type="text"
-                  className="input mt-2"
+                  className="input"
+                  placeholder="e.g. did:sih26125:ENG002"
                   value={transRecipientDid}
                   onChange={(e) => setTransRecipientDid(e.target.value)}
-                  placeholder="Or type recipient DID (e.g. did:sih26125:ORG_INSPACE)..."
+                  required
+                />
+                {allDids.length > 0 && (
+                  <div className="mt-1 flex-gap flex-wrap">
+                    <span className="text-xs text-muted">Registered DIDs:</span>
+                    {allDids.filter(d => d.did !== activeDID).map(d => (
+                      <button
+                        key={d.did}
+                        type="button"
+                        className="btn btn-xs btn-outline"
+                        onClick={() => setTransRecipientDid(d.did)}
+                      >
+                        {d.did.split(':').pop()} ({d.role})
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="label">Transfer Justification / Reason *</label>
+                <textarea
+                  className="input input-textarea"
+                  rows={3}
+                  placeholder="Explain why asset custody is being transferred..."
+                  value={transReason}
+                  onChange={(e) => setTransReason(e.target.value)}
                   required
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary btn-block">
-                Confirm Ownership Transfer
+              <button type="submit" className="btn btn-primary w-full mt-2">
+                Submit Request for Manager Approval
               </button>
             </form>
           </div>
         )}
 
-        {/* TAB 3: Verify */}
-        {activeTab === 'verify' && (
-          <div className="glass-card card-narrow">
-            <div className="card-header-styled">
-              <div>
-                <h3 className="card-title">Verify On-Chain Authenticity</h3>
-                <p className="card-desc">Validate state and ownership details of any token.</p>
-              </div>
+        {/* TAB 3: My Transfer Workflow */}
+        {activeTab === 'my-requests' && (
+          <div className="glass-card">
+            <div className="flex-between card-header-row mb-3">
+              <h3 className="card-title">Transfer Request Workflow History</h3>
+              <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh</button>
             </div>
 
-            <form onSubmit={handleVerify} className="form-layout">
-              <div className="form-group">
-                <label className="label">Select or Enter Token ID:</label>
-                {allNfts.length > 0 ? (
-                  <select
-                    className="input"
-                    value={verifyTokenId}
-                    onChange={(e) => setVerifyTokenId(e.target.value)}
-                  >
-                    <option value="">-- Select Token ID to Verify --</option>
-                    {allNfts.map((nft, idx) => (
-                      <option key={idx} value={nft.tokenId}>
-                        {nft.tokenId} - {nft.assetName}
-                      </option>
+            {myRequests.length === 0 ? (
+              <div className="empty-state-box py-5">
+                <p className="text-muted">No custodian transfer requests recorded for your DID.</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Request ID</th>
+                      <th>Token ID</th>
+                      <th>From Custodian</th>
+                      <th>To Custodian</th>
+                      <th>Justification</th>
+                      <th>Status</th>
+                      <th>Approved By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myRequests.map((req, idx) => (
+                      <tr key={req.requestId || idx}>
+                        <td><code>{req.requestId}</code></td>
+                        <td><code>{req.tokenId}</code></td>
+                        <td><code>{req.fromDID}</code></td>
+                        <td><code>{req.toDID}</code></td>
+                        <td className="text-xs">{req.reason || 'N/A'}</td>
+                        <td>
+                          <span className={`status-pill ${req.status === 'APPROVED' ? 'status-active' : req.status === 'PENDING' ? 'status-pending' : 'status-revoked'}`}>
+                            {req.status}
+                          </span>
+                        </td>
+                        <td>{req.approvedBy ? <code>{req.approvedBy}</code> : '-'}</td>
+                      </tr>
                     ))}
-                  </select>
-                ) : null}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: Verify Asset Authenticity */}
+        {activeTab === 'verify-token' && (
+          <div className="glass-card max-w-xl mx-auto">
+            <h3 className="card-title mb-2">Cryptographic Asset Verification</h3>
+            <p className="text-sm text-muted mb-4">
+              Query the Hyperledger Fabric ledger to verify whether an asset token is genuine, active, and legally owned.
+            </p>
+
+            <form onSubmit={handleVerify} className="form-grid">
+              <div className="form-group">
+                <label className="label">Asset Token ID *</label>
                 <input
                   type="text"
-                  className="input mt-2"
+                  className="input"
+                  placeholder="e.g. NFT-1001"
                   value={verifyTokenId}
                   onChange={(e) => setVerifyTokenId(e.target.value)}
-                  placeholder="Or type Token ID (e.g. NFT-2026-PATENT-001)..."
                   required
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary btn-block">
-                Verify On-Chain Status
+              <button type="submit" className="btn btn-primary w-full mt-2">
+                Verify Ledger Record
               </button>
             </form>
 
             {verifyResult && (
-              <div className={`verification-box ${verifyResult.valid ? 'box-valid' : 'box-invalid'}`}>
-                <h4>Result: {verifyResult.valid ? 'VALID & AUTHENTIC' : 'INVALID / REVOKED'}</h4>
-                <p><strong>Token ID:</strong> {verifyResult.tokenId}</p>
-                <p><strong>Asset Title:</strong> {verifyResult.assetName || 'N/A'}</p>
-                <p><strong>Owner DID:</strong> {verifyResult.ownerDID || 'UNASSIGNED'}</p>
-                <p><strong>Token Status:</strong> {verifyResult.status || 'N/A'}</p>
+              <div className="verification-card mt-4">
+                <h4 className="card-subtitle mb-2 flex-between">
+                  <span>Verification Output:</span>
+                  <span className={`badge ${verifyResult.valid ? 'badge-success' : 'badge-danger'}`}>
+                    {verifyResult.valid ? '✓ VALID & AUTHENTIC' : '✕ INVALID / REVOKED'}
+                  </span>
+                </h4>
+                <pre className="code-block">{JSON.stringify(verifyResult, null, 2)}</pre>
               </div>
             )}
           </div>
@@ -331,5 +390,3 @@ export default function UserView({ activeDID, notify, onViewProvenance }) {
     </div>
   );
 }
-
-

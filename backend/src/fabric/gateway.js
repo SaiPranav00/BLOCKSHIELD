@@ -55,44 +55,57 @@ let grpcClientInstance = null;
 // Mock ledger state for offline/testing mode
 const mockStore = {
     identities: new Map([
-        ['did:sih26125:ADMIN001', { did: 'did:sih26125:ADMIN001', role: 'ADMIN', status: 'ACTIVE' }],
-        ['did:sih26125:MANAGER001', { did: 'did:sih26125:MANAGER001', role: 'MANAGER', status: 'ACTIVE' }],
-        ['did:sih26125:AUDITOR001', { did: 'did:sih26125:AUDITOR001', role: 'AUDITOR', status: 'ACTIVE' }],
-        ['did:sih26125:USER001', { did: 'did:sih26125:USER001', role: 'USER', status: 'ACTIVE' }],
-        ['did:sih26125:CITIZEN_KUMAR', { did: 'did:sih26125:CITIZEN_KUMAR', role: 'USER', status: 'ACTIVE' }],
+        ['did:sih26125:ADMIN001', { did: 'did:sih26125:ADMIN001', role: 'ADMIN', department: 'Executive', status: 'ACTIVE' }],
+        ['did:sih26125:MANAGER001', { did: 'did:sih26125:MANAGER001', role: 'MANAGER', department: 'R&D', status: 'ACTIVE' }],
+        ['did:sih26125:AUDITOR001', { did: 'did:sih26125:AUDITOR001', role: 'AUDITOR', department: 'Compliance', status: 'ACTIVE' }],
+        ['did:sih26125:USER001', { did: 'did:sih26125:USER001', role: 'USER', department: 'R&D', status: 'ACTIVE' }],
+        ['did:sih26125:N123456', { did: 'did:sih26125:N123456', role: 'USER', department: 'R&D', status: 'ACTIVE' }],
     ]),
     nfts: new Map([
-        ['NFT-DEGREE-2026', {
+        ['NFT-1001', {
             docType: 'nft',
-            tokenId: 'NFT-DEGREE-2026',
-            assetName: 'B.Tech Degree Certificate',
-            assetType: 'CERTIFICATE',
-            metadata: JSON.stringify({ issuer: 'IIT Madras', grade: 'Honours' }),
+            tokenId: 'NFT-1001',
+            assetId: 'BEL-RF-00421',
+            assetName: 'RF Signal Analyzer',
+            assetType: 'TESTING_EQUIPMENT',
+            legalOwner: 'BEL',
+            custodian: 'did:sih26125:N123456',
+            ownerDID: 'did:sih26125:N123456',
+            department: 'R&D',
+            location: 'R&D Lab 1',
+            metadata: JSON.stringify({ frequencyRange: '9kHz - 6GHz', calibrationDue: '2027-01' }),
+            metadataHash: 'a7b8c9d0e1f2',
             creatorDID: 'did:sih26125:ADMIN001',
-            ownerDID: 'did:sih26125:CITIZEN_KUMAR',
             status: 'ACTIVE',
             createdAt: new Date(Date.now() - 3600000).toISOString(),
             updatedAt: new Date(Date.now() - 3600000).toISOString(),
         }],
-        ['NFT-EQUIP-001', {
+        ['NFT-1002', {
             docType: 'nft',
-            tokenId: 'NFT-EQUIP-001',
-            assetName: 'Laboratory Supercomputer Node',
-            assetType: 'PROPERTY',
-            metadata: JSON.stringify({ facility: 'Central Research Lab', specs: 'NVIDIA H100 GPU Node' }),
+            tokenId: 'NFT-1002',
+            assetId: 'BEL-WS-0077',
+            assetName: 'Engineering Workstation',
+            assetType: 'HARDWARE',
+            legalOwner: 'BEL',
+            custodian: 'did:sih26125:USER001',
+            ownerDID: 'did:sih26125:USER001',
+            department: 'R&D',
+            location: 'Building B, Floor 2',
+            metadata: JSON.stringify({ ram: '128GB', gpu: 'RTX A6000' }),
+            metadataHash: 'f1e2d3c4b5a6',
             creatorDID: 'did:sih26125:ADMIN001',
-            ownerDID: 'did:sih26125:MANAGER001',
             status: 'ACTIVE',
             createdAt: new Date(Date.now() - 7200000).toISOString(),
             updatedAt: new Date(Date.now() - 7200000).toISOString(),
         }]
     ]),
+    transferRequests: new Map(),
     auditLogs: [
         {
             docType: 'audit',
             eventId: 'AUDIT_INIT_001',
             actorDID: 'did:sih26125:ADMIN001',
-            action: 'CREATE_DID',
+            action: 'IDENTITY_CREATED',
             resourceId: 'did:sih26125:ADMIN001',
             result: 'ALLOWED',
             timestamp: String(Math.floor((Date.now() - 10800000) / 1000)),
@@ -102,21 +115,21 @@ const mockStore = {
             docType: 'audit',
             eventId: 'AUDIT_INIT_002',
             actorDID: 'did:sih26125:ADMIN001',
-            action: 'MINT_NFT',
-            resourceId: 'NFT-DEGREE-2026',
+            action: 'ASSET_MINTED',
+            resourceId: 'NFT-1001',
             result: 'ALLOWED',
             timestamp: String(Math.floor((Date.now() - 3600000) / 1000)),
-            details: 'Minted Digital Asset B.Tech Degree Certificate (CERTIFICATE)'
+            details: 'Minted tokenized asset RF Signal Analyzer (BEL-RF-00421)'
         },
         {
             docType: 'audit',
             eventId: 'AUDIT_INIT_003',
             actorDID: 'did:sih26125:ADMIN001',
-            action: 'ALLOCATE_NFT',
-            resourceId: 'NFT-DEGREE-2026',
+            action: 'ASSET_ALLOCATED',
+            resourceId: 'NFT-1001',
             result: 'ALLOWED',
             timestamp: String(Math.floor((Date.now() - 1800000) / 1000)),
-            details: 'Allocated NFT-DEGREE-2026 to did:sih26125:CITIZEN_KUMAR'
+            details: 'Allocated NFT-1001 custodian to did:sih26125:N123456'
         }
     ],
 };
@@ -480,9 +493,138 @@ function executeMockTransaction(funcName, args) {
             };
         }
 
-        case 'GetAssetsByOwnerDID': {
+        case 'GetAssetsByOwnerDID':
+        case 'GetAssetsByCustodianDID': {
             const [did] = args;
-            return Array.from(mockStore.nfts.values()).filter(nft => nft.ownerDID === did);
+            return Array.from(mockStore.nfts.values()).filter(nft => nft.custodian === did || nft.ownerDID === did);
+        }
+
+        case 'GetAssetsByDepartment': {
+            const [dept] = args;
+            return Array.from(mockStore.nfts.values()).filter(nft => (nft.department || '').toLowerCase() === (dept || '').toLowerCase());
+        }
+
+        case 'CreateTransferRequest': {
+            const [requestedByDID, tokenId, toDID, reason] = args;
+            const nft = mockStore.nfts.get(tokenId);
+            if (!nft) throw new Error(`Asset ${tokenId} not found`);
+            const reqId = `TR-${Date.now()}`;
+            const req = {
+                docType: 'transfer_request',
+                requestId: reqId,
+                tokenId,
+                assetId: nft.assetId || tokenId,
+                fromDID: nft.custodian || nft.ownerDID,
+                toDID,
+                requestedBy: requestedByDID,
+                reason,
+                status: 'PENDING',
+                approvedBy: '',
+                createdAt: now,
+                approvedAt: ''
+            };
+            mockStore.transferRequests.set(reqId, req);
+            nft.status = 'TRANSFER_PENDING';
+            nft.updatedAt = now;
+            mockStore.nfts.set(tokenId, nft);
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}`,
+                actorDID: requestedByDID,
+                action: 'TRANSFER_REQUESTED',
+                resourceId: reqId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Requested asset ${tokenId} transfer from ${req.fromDID} to ${toDID}`
+            });
+            return req;
+        }
+
+        case 'ApproveTransferRequest': {
+            const [approverDID, requestId] = args;
+            const approver = mockStore.identities.get(approverDID);
+            if (!approver || (approver.role !== 'ADMIN' && approver.role !== 'MANAGER')) {
+                throw new Error(`access denied: actor DID ${approverDID} not authorized to approve transfers`);
+            }
+            const req = mockStore.transferRequests.get(requestId);
+            if (!req) throw new Error(`Transfer request ${requestId} not found`);
+            if (req.status !== 'PENDING') throw new Error(`Transfer request ${requestId} is already ${req.status}`);
+            
+            req.status = 'APPROVED';
+            req.approvedBy = approverDID;
+            req.approvedAt = now;
+            mockStore.transferRequests.set(requestId, req);
+
+            const nft = mockStore.nfts.get(req.tokenId);
+            if (nft) {
+                nft.custodian = req.toDID;
+                nft.ownerDID = req.toDID;
+                nft.status = 'ACTIVE';
+                nft.updatedAt = now;
+                mockStore.nfts.set(req.tokenId, nft);
+            }
+
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}`,
+                actorDID: approverDID,
+                action: 'TRANSFER_APPROVED',
+                resourceId: requestId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Approved transfer ${requestId}: Custodian updated to ${req.toDID}`
+            });
+            return req;
+        }
+
+        case 'RejectTransferRequest': {
+            const [approverDID, requestId, reason] = args;
+            const approver = mockStore.identities.get(approverDID);
+            if (!approver || (approver.role !== 'ADMIN' && approver.role !== 'MANAGER')) {
+                throw new Error(`access denied: actor DID ${approverDID} not authorized to reject transfers`);
+            }
+            const req = mockStore.transferRequests.get(requestId);
+            if (!req) throw new Error(`Transfer request ${requestId} not found`);
+            
+            req.status = 'REJECTED';
+            req.approvedBy = approverDID;
+            req.approvedAt = now;
+            mockStore.transferRequests.set(requestId, req);
+
+            const nft = mockStore.nfts.get(req.tokenId);
+            if (nft) {
+                nft.status = 'ACTIVE';
+                nft.updatedAt = now;
+                mockStore.nfts.set(req.tokenId, nft);
+            }
+
+            mockStore.auditLogs.unshift({
+                docType: 'audit',
+                eventId: `AUDIT_${Date.now()}`,
+                actorDID: approverDID,
+                action: 'TRANSFER_REJECTED',
+                resourceId: requestId,
+                result: 'ALLOWED',
+                timestamp: String(Math.floor(Date.now() / 1000)),
+                details: `Rejected transfer ${requestId}: ${reason || 'No reason provided'}`
+            });
+            return req;
+        }
+
+        case 'GetPendingTransferRequests': {
+            return Array.from(mockStore.transferRequests.values()).filter(r => r.status === 'PENDING');
+        }
+
+        case 'GetTransferRequest': {
+            const [requestId] = args;
+            const req = mockStore.transferRequests.get(requestId);
+            if (!req) throw new Error(`Transfer request ${requestId} not found`);
+            return req;
+        }
+
+        case 'GetTransferRequestsByDID': {
+            const [did] = args;
+            return Array.from(mockStore.transferRequests.values()).filter(r => r.fromDID === did || r.toDID === did || r.requestedBy === did);
         }
 
         case 'GetNFTHistory': {

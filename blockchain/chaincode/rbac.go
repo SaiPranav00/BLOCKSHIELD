@@ -74,7 +74,7 @@ func (s *SmartContract) AssignRole(ctx contractapi.TransactionContextInterface, 
 	}
 
 	// 3. Update target DID role
-	targetIdentity, err := s.UpdateDID(ctx, targetDID, "", validRole)
+	targetIdentity, err := s.UpdateDID(ctx, targetDID, "", validRole, "")
 	if err != nil {
 		_ = s.RecordAuditEvent(ctx, adminDID, "ASSIGN_ROLE", targetDID, "DENIED", err.Error())
 		return nil, err

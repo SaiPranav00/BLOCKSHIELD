@@ -1,43 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import {
+  getPendingTransferRequests,
+  approveTransferRequest,
+  rejectTransferRequest,
   allocateNFT,
-  transferNFT,
-  getAssetsByOwner,
-  verifyNFT,
   getAllNFTs,
   getAllDIDs,
 } from '../services/api';
 
 export default function ManagerView({ activeDID, notify, onViewProvenance }) {
-  const [activeTab, setActiveTab] = useState('catalog');
+  const [activeTab, setActiveTab] = useState('pending-approvals');
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [nftsList, setNftsList] = useState([]);
   const [didsList, setDidsList] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Reject Modal State
+  const [rejectReqId, setRejectReqId] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
 
   // Allocation Form
   const [allocTokenId, setAllocTokenId] = useState('');
   const [allocOwnerDid, setAllocOwnerDid] = useState('');
 
-  // Transfer Form
-  const [transTokenId, setTransTokenId] = useState('');
-  const [transNewOwnerDid, setTransNewOwnerDid] = useState('');
-
-  // Search Form
-  const [searchDid, setSearchDid] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-
-  // Verify Form
-  const [verifyTokenId, setVerifyTokenId] = useState('');
-  const [verifyResult, setVerifyResult] = useState(null);
-
   const refreshManagerData = async () => {
     setLoading(true);
     try {
-      const [nftsRes, didsRes] = await Promise.allSettled([
+      const [pendingRes, nftsRes, didsRes] = await Promise.allSettled([
+        getPendingTransferRequests(),
         getAllNFTs(),
         getAllDIDs(),
       ]);
 
+      if (pendingRes.status === 'fulfilled') {
+        const data = pendingRes.value?.data || pendingRes.value || [];
+        setPendingRequests(Array.isArray(data) ? data : []);
+      }
       if (nftsRes.status === 'fulfilled') {
         const data = nftsRes.value?.data || nftsRes.value || [];
         setNftsList(Array.isArray(data) ? data : []);
@@ -76,10 +74,42 @@ export default function ManagerView({ activeDID, notify, onViewProvenance }) {
     return clean;
   };
 
+  const handleApprove = async (requestId) => {
+    try {
+      await approveTransferRequest(requestId, { approverDID: activeDID });
+      notify(`Transfer request ${requestId} APPROVED! Asset custodian updated on ledger.`, 'success');
+      refreshManagerData();
+    } catch (err) {
+      const errMsg = err.message || '';
+      const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
+      notify(cleanErr, 'error');
+    }
+  };
+
+  const handleRejectSubmit = async (e) => {
+    e.preventDefault();
+    if (!rejectReqId) return;
+
+    try {
+      await rejectTransferRequest(rejectReqId, {
+        approverDID: activeDID,
+        reason: rejectReason || 'Rejected by Department Manager'
+      });
+      notify(`Transfer request ${rejectReqId} REJECTED on ledger.`, 'success');
+      setRejectReqId('');
+      setRejectReason('');
+      refreshManagerData();
+    } catch (err) {
+      const errMsg = err.message || '';
+      const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
+      notify(cleanErr, 'error');
+    }
+  };
+
   const handleAllocate = async (e) => {
     e.preventDefault();
     if (!allocTokenId.trim() || !allocOwnerDid.trim()) {
-      return notify('Please fill in Token ID and Target Owner DID', 'error');
+      return notify('Please fill in Token ID and Target Custodian DID', 'error');
     }
 
     const cleanToken = sanitizeTokenId(allocTokenId);
@@ -90,7 +120,7 @@ export default function ManagerView({ activeDID, notify, onViewProvenance }) {
         actorDID: activeDID,
         ownerDID: cleanOwner,
       });
-      notify(`Asset ${cleanToken} successfully allocated to ${cleanOwner}`, 'success');
+      notify(`Asset ${cleanToken} successfully allocated to custodian ${cleanOwner}`, 'success');
       setAllocTokenId('');
       setAllocOwnerDid('');
       refreshManagerData();
@@ -101,557 +131,237 @@ export default function ManagerView({ activeDID, notify, onViewProvenance }) {
     }
   };
 
-  const handleTransfer = async (e) => {
-    e.preventDefault();
-    if (!transTokenId.trim() || !transNewOwnerDid.trim()) {
-      return notify('Please fill in Token ID and New Owner DID', 'error');
-    }
-
-    const cleanToken = sanitizeTokenId(transTokenId);
-    const cleanNewOwner = sanitizeDID(transNewOwnerDid);
-
-    try {
-      await transferNFT(cleanToken, {
-        actorDID: activeDID,
-        newOwnerDID: cleanNewOwner,
-      });
-      notify(`Asset ${cleanToken} transferred to ${cleanNewOwner}`, 'success');
-      setTransTokenId('');
-      setTransNewOwnerDid('');
-      refreshManagerData();
-    } catch (err) {
-      const errMsg = err.message || '';
-      const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
-      notify(cleanErr, 'error');
-    }
-  };
-
-  const handleSearchByOwner = async (e) => {
-    e.preventDefault();
-    if (!searchDid.trim()) return notify('Enter Owner DID to search', 'error');
-
-    const cleanOwner = sanitizeDID(searchDid);
-
-    try {
-      const res = await getAssetsByOwner(cleanOwner);
-      const data = res?.data || res || [];
-      setSearchResults(Array.isArray(data) ? data : []);
-      notify(`Found ${data.length} assets owned by ${cleanOwner}`, 'success');
-    } catch (err) {
-      const errMsg = err.message || '';
-      const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
-      notify(cleanErr, 'error');
-    }
-  };
-
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    if (!verifyTokenId.trim()) return notify('Enter Token ID to verify', 'error');
-
-    const cleanToken = sanitizeTokenId(verifyTokenId);
-
-    try {
-      const res = await verifyNFT(cleanToken);
-      const result = res?.data || res;
-      setVerifyResult(result);
-      if (result.valid) {
-        notify(`NFT ${cleanToken} is authentic and active`, 'success');
-      } else {
-        notify(`NFT Verification Failed: ${result.reason || 'Invalid token'}`, 'error');
-      }
-    } catch (err) {
-      const errMsg = err.message || '';
-      const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
-      notify(cleanErr, 'error');
-    }
-  };
-
-  const selectForAllocation = (tokenId) => {
-    setAllocTokenId(tokenId);
-    setActiveTab('allocate');
-  };
-
-  const selectForTransfer = (tokenId) => {
-    setTransTokenId(tokenId);
-    setActiveTab('transfer');
-  };
-
   return (
     <div className="dashboard-container manager-dashboard">
       <div className="sub-nav">
         <button
-          className={`sub-tab ${activeTab === 'catalog' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('catalog'); refreshManagerData(); }}
+          className={`sub-tab ${activeTab === 'pending-approvals' ? 'active' : ''}`}
+          onClick={() => setActiveTab('pending-approvals')}
         >
-          1. Asset Catalog ({nftsList.length})
+          1. Pending Transfer Approvals ({pendingRequests.length})
+        </button>
+        <button
+          className={`sub-tab ${activeTab === 'dept-assets' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dept-assets')}
+        >
+          2. Department Asset Roster ({nftsList.length})
         </button>
         <button
           className={`sub-tab ${activeTab === 'allocate' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('allocate'); refreshManagerData(); }}
+          onClick={() => setActiveTab('allocate')}
         >
-          2. Allocate Asset
+          3. Resource Allocation
         </button>
         <button
-          className={`sub-tab ${activeTab === 'transfer' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('transfer'); refreshManagerData(); }}
+          className={`sub-tab ${activeTab === 'dept-users' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dept-users')}
         >
-          3. Transfer Asset
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'search' ? 'active' : ''}`}
-          onClick={() => setActiveTab('search')}
-        >
-          4. Search Owner Assets
-        </button>
-        <button
-          className={`sub-tab ${activeTab === 'verify' ? 'active' : ''}`}
-          onClick={() => setActiveTab('verify')}
-        >
-          5. Verify Authenticity
+          4. Department Personnel ({didsList.length})
         </button>
       </div>
 
       <div className="dashboard-content">
-        {/* TAB 1: Asset Catalog (Full Visibility) */}
-        {activeTab === 'catalog' && (
+        {/* TAB 1: Pending Transfer Approvals */}
+        {activeTab === 'pending-approvals' && (
           <div className="glass-card">
             <div className="flex-between card-header-row mb-3">
               <div>
-                <h3 className="card-title">All On-Chain Digital Assets</h3>
-                <p className="card-desc">Complete ledger asset registry available for manager allocation & transfer operations.</p>
+                <h3 className="card-title">Pending Custodian Transfer Requests</h3>
+                <p className="text-xs text-muted">Review and authorize asset custodian transfers. Approving commits the updated custodian to the Fabric blockchain.</p>
               </div>
-              <button className="btn btn-xs btn-secondary" onClick={refreshManagerData} disabled={loading}>
-                {loading ? 'Syncing...' : 'Refresh Catalog'}
-              </button>
+              <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
             </div>
 
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Token ID</th>
-                    <th>Asset Title</th>
-                    <th>Type</th>
-                    <th>Current Owner</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nftsList.length === 0 ? (
+            {pendingRequests.length === 0 ? (
+              <div className="empty-state-box py-5">
+                <p className="text-muted">No pending transfer requests require your approval at this time.</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
                     <tr>
-                      <td colSpan="6" className="empty-table-cell">
-                        <p className="text-muted">No tokenized assets found on ledger. Mint assets in Admin view to begin.</p>
-                      </td>
+                      <th>Request ID</th>
+                      <th>Token ID</th>
+                      <th>Current Custodian</th>
+                      <th>Target Custodian</th>
+                      <th>Justification</th>
+                      <th>Requested At</th>
+                      <th>Actions</th>
                     </tr>
-                  ) : (
-                    nftsList.map((nft, idx) => (
-                      <tr key={idx}>
-                        <td><code>{nft.tokenId}</code></td>
-                        <td>{nft.assetName}</td>
-                        <td><span className="type-pill">{nft.assetType}</span></td>
+                  </thead>
+                  <tbody>
+                    {pendingRequests.map((req) => (
+                      <tr key={req.requestId}>
+                        <td><code>{req.requestId}</code></td>
+                        <td><code>{req.tokenId}</code></td>
+                        <td><code>{req.fromDID}</code></td>
+                        <td><code>{req.toDID}</code></td>
+                        <td className="text-xs">{req.reason || 'N/A'}</td>
+                        <td className="text-xs">{req.createdAt ? new Date(req.createdAt).toLocaleString() : 'Just now'}</td>
                         <td>
-                          {nft.ownerDID ? (
-                            <code>{nft.ownerDID}</code>
-                          ) : (
-                            <span className="badge badge-warning">UNASSIGNED</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className={`status-pill ${nft.status === 'REVOKED' ? 'status-revoked' : 'status-active'}`}>
-                            {nft.status || 'ACTIVE'}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="action-buttons-cell">
+                          <div className="flex-gap">
                             <button
-                              className="btn btn-xs btn-outline"
-                              onClick={() => selectForAllocation(nft.tokenId)}
-                              title="Allocate asset to identity"
+                              className="btn btn-xs btn-success"
+                              onClick={() => handleApprove(req.requestId)}
                             >
-                              Allocate
+                              ✓ Approve
                             </button>
                             <button
-                              className="btn btn-xs btn-outline"
-                              onClick={() => selectForTransfer(nft.tokenId)}
-                              title="Transfer asset to new owner"
+                              className="btn btn-xs btn-danger"
+                              onClick={() => setRejectReqId(req.requestId)}
                             >
-                              Transfer
-                            </button>
-                            <button
-                              className="btn btn-xs btn-secondary"
-                              onClick={() => onViewProvenance(nft.tokenId)}
-                              title="Inspect full provenance timeline"
-                            >
-                              Provenance
+                              ✕ Reject
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: Allocate Asset */}
-        {activeTab === 'allocate' && (
-          <div className="card-grid">
-            <div className="glass-card">
-              <h3 className="card-title">Allocate Asset to Owner</h3>
-              <p className="card-desc">Assign an unallocated asset or re-assign asset ownership to a registered identity.</p>
-
-              <form onSubmit={handleAllocate} className="form-layout">
-                <div className="form-group">
-                  <label className="label">Select or Enter Token ID:</label>
-                  {nftsList.length > 0 ? (
-                    <select
-                      className="input"
-                      value={allocTokenId}
-                      onChange={(e) => setAllocTokenId(e.target.value)}
-                    >
-                      <option value="">-- Select Token ID from Ledger --</option>
-                      {nftsList.map((nft, idx) => (
-                        <option key={idx} value={nft.tokenId}>
-                          {nft.tokenId} - {nft.assetName} ({nft.ownerDID ? `Owner: ${nft.ownerDID}` : 'UNASSIGNED'})
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <input
-                    type="text"
-                    className="input mt-2"
-                    value={allocTokenId}
-                    onChange={(e) => setAllocTokenId(e.target.value)}
-                    placeholder="Or type Token ID (e.g. NFT-2026-PATENT-001)..."
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="label">Target Owner DID:</label>
-                  {didsList.length > 0 ? (
-                    <select
-                      className="input"
-                      value={allocOwnerDid}
-                      onChange={(e) => setAllocOwnerDid(e.target.value)}
-                    >
-                      <option value="">-- Select Target DID from Registry --</option>
-                      {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
-                        <option key={idx} value={d.did}>
-                          {d.did} [{d.role}]
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <input
-                    type="text"
-                    className="input mt-2"
-                    value={allocOwnerDid}
-                    onChange={(e) => setAllocOwnerDid(e.target.value)}
-                    placeholder="Or type target DID (e.g. did:sih26125:EMP_001)..."
-                    required
-                  />
-                </div>
-
-                <button type="submit" className="btn btn-primary btn-block">
-                  Submit Asset Allocation
-                </button>
-              </form>
-            </div>
-
-            <div className="glass-card">
-              <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Ledger Asset Registry ({nftsList.length})</h3>
-                <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
-              </div>
-
-              <div className="table-responsive">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Token ID</th>
-                      <th>Title</th>
-                      <th>Current Owner</th>
-                      <th>Quick Select</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {nftsList.length === 0 ? (
-                      <tr>
-                        <td colSpan="4" className="empty-table-cell">
-                          <p className="text-muted">No tokenized assets found on ledger</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      nftsList.map((nft, idx) => (
-                        <tr key={idx}>
-                          <td><code>{nft.tokenId}</code></td>
-                          <td>{nft.assetName}</td>
-                          <td>
-                            {nft.ownerDID ? <code>{nft.ownerDID}</code> : <span className="badge badge-warning">UNASSIGNED</span>}
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="btn btn-xs btn-outline"
-                              onClick={() => setAllocTokenId(nft.tokenId)}
-                            >
-                              Select
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: Transfer Asset */}
-        {activeTab === 'transfer' && (
-          <div className="card-grid">
-            <div className="glass-card">
-              <h3 className="card-title">Manager-Assisted Asset Transfer</h3>
-              <p className="card-desc">Transfer asset ownership from current owner to a new registered owner DID.</p>
-
-              <form onSubmit={handleTransfer} className="form-layout">
-                <div className="form-group">
-                  <label className="label">Select or Enter Token ID:</label>
-                  {nftsList.length > 0 ? (
-                    <select
-                      className="input"
-                      value={transTokenId}
-                      onChange={(e) => setTransTokenId(e.target.value)}
-                    >
-                      <option value="">-- Select Token ID to Transfer --</option>
-                      {nftsList.filter(n => n.status !== 'REVOKED').map((nft, idx) => (
-                        <option key={idx} value={nft.tokenId}>
-                          {nft.tokenId} - {nft.assetName} ({nft.ownerDID || 'UNASSIGNED'})
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <input
-                    type="text"
-                    className="input mt-2"
-                    value={transTokenId}
-                    onChange={(e) => setTransTokenId(e.target.value)}
-                    placeholder="Or type Token ID (e.g. NFT-2026-PATENT-001)..."
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="label">Recipient New Owner DID:</label>
-                  {didsList.length > 0 ? (
-                    <select
-                      className="input"
-                      value={transNewOwnerDid}
-                      onChange={(e) => setTransNewOwnerDid(e.target.value)}
-                    >
-                      <option value="">-- Select Recipient DID from Registry --</option>
-                      {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
-                        <option key={idx} value={d.did}>
-                          {d.did} [{d.role}]
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                  <input
-                    type="text"
-                    className="input mt-2"
-                    value={transNewOwnerDid}
-                    onChange={(e) => setTransNewOwnerDid(e.target.value)}
-                    placeholder="Or type recipient DID (e.g. did:sih26125:ORG_INSPACE)..."
-                    required
-                  />
-                </div>
-
-                <button type="submit" className="btn btn-primary btn-block">
-                  Execute Asset Transfer
-                </button>
-              </form>
-            </div>
-
-            <div className="glass-card">
-              <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Allocated Assets ({nftsList.filter(n => !!n.ownerDID).length})</h3>
-                <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
-              </div>
-
-              <div className="table-responsive">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Token ID</th>
-                      <th>Title</th>
-                      <th>Owner DID</th>
-                      <th>Quick Select</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {nftsList.filter(n => !!n.ownerDID).length === 0 ? (
-                      <tr>
-                        <td colSpan="4" className="empty-table-cell">
-                          <p className="text-muted">No allocated assets currently found</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      nftsList.filter(n => !!n.ownerDID).map((nft, idx) => (
-                        <tr key={idx}>
-                          <td><code>{nft.tokenId}</code></td>
-                          <td>{nft.assetName}</td>
-                          <td><code>{nft.ownerDID}</code></td>
-                          <td>
-                            <button
-                              type="button"
-                              className="btn btn-xs btn-outline"
-                              onClick={() => setTransTokenId(nft.tokenId)}
-                            >
-                              Select
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: Search */}
-        {activeTab === 'search' && (
-          <div className="glass-card">
-            <h3 className="card-title">Search Assets Owned by Specific DID</h3>
-            <p className="card-desc">Query all tokenized digital assets registered to an identity on-chain.</p>
-
-            <form onSubmit={handleSearchByOwner} className="form-inline-row">
-              {didsList.length > 0 ? (
-                <select
-                  className="input flex-1"
-                  value={searchDid}
-                  onChange={(e) => setSearchDid(e.target.value)}
-                >
-                  <option value="">-- Select DID from Registry --</option>
-                  {didsList.map((d, idx) => (
-                    <option key={idx} value={d.did}>
-                      {d.did} [{d.role}]
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              <input
-                type="text"
-                className="input flex-1"
-                value={searchDid}
-                onChange={(e) => setSearchDid(e.target.value)}
-                placeholder="Or enter Owner DID (e.g. did:sih26125:EMP_DR_SHARMA)..."
-                required
-              />
-              <button type="submit" className="btn btn-primary">Search Assets</button>
-            </form>
-
-            <div className="results-container">
-              <h4 className="section-subtitle">Search Results ({searchResults.length})</h4>
-              <div className="table-responsive">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Token ID</th>
-                      <th>Asset Title</th>
-                      <th>Type</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {searchResults.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="empty-table-cell">
-                          <p className="text-muted">No assets found for this owner DID</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      searchResults.map((item, idx) => (
-                        <tr key={idx}>
-                          <td><code>{item.tokenId}</code></td>
-                          <td>{item.assetName}</td>
-                          <td><span className="type-pill">{item.assetType}</span></td>
-                          <td><span className="status-pill status-active">{item.status || 'ACTIVE'}</span></td>
-                          <td>
-                            <button className="btn btn-xs btn-outline" onClick={() => onViewProvenance(item.tokenId)}>
-                              Provenance
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: Verify */}
-        {activeTab === 'verify' && (
-          <div className="glass-card card-narrow">
-            <h3 className="card-title">Verify Asset On-Chain Authenticity</h3>
-            <p className="card-desc">Check on-chain validity, active state, and owner authenticity of any token.</p>
-
-            <form onSubmit={handleVerify} className="form-layout">
-              <div className="form-group">
-                <label className="label">Select or Enter Token ID:</label>
-                {nftsList.length > 0 ? (
-                  <select
-                    className="input"
-                    value={verifyTokenId}
-                    onChange={(e) => setVerifyTokenId(e.target.value)}
-                  >
-                    <option value="">-- Select Token ID to Verify --</option>
-                    {nftsList.map((nft, idx) => (
-                      <option key={idx} value={nft.tokenId}>
-                        {nft.tokenId} - {nft.assetName}
-                      </option>
                     ))}
-                  </select>
-                ) : null}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Reject Reason Dialog */}
+            {rejectReqId && (
+              <div className="modal-backdrop">
+                <div className="modal-container max-w-md">
+                  <div className="modal-header">
+                    <h3 className="modal-title">Reject Transfer Request</h3>
+                    <button className="modal-close-btn" onClick={() => setRejectReqId('')}>&times;</button>
+                  </div>
+                  <form onSubmit={handleRejectSubmit} className="modal-body">
+                    <p className="text-xs text-muted mb-3">Rejecting transfer request <code>{rejectReqId}</code> will restore the asset status to ACTIVE under its current custodian.</p>
+                    <div className="form-group mb-3">
+                      <label className="label">Reason for Rejection *</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g. Asset required for ongoing project"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="flex-between">
+                      <button type="button" className="btn btn-secondary" onClick={() => setRejectReqId('')}>Cancel</button>
+                      <button type="submit" className="btn btn-danger">Confirm Rejection</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: Department Asset Roster */}
+        {activeTab === 'dept-assets' && (
+          <div className="glass-card">
+            <div className="flex-between card-header-row mb-3">
+              <h3 className="card-title">Department Managed Assets</h3>
+              <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
+            </div>
+
+            <div className="grid grid-3">
+              {nftsList.map((asset, idx) => (
+                <div key={asset.tokenId || idx} className="asset-card">
+                  <div className="asset-header">
+                    <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                    <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : asset.status === 'TRANSFER_PENDING' ? 'status-pending' : 'status-revoked'}`}>
+                      {asset.status || 'ACTIVE'}
+                    </span>
+                  </div>
+                  <h4 className="asset-title">{asset.assetName || asset.name}</h4>
+                  <p className="asset-id">Token: <code>{asset.tokenId}</code></p>
+                  {asset.assetId && <p className="asset-id">Asset Registry ID: <code>{asset.assetId}</code></p>}
+                  <div className="asset-meta text-xs my-2">
+                    <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                    <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                    <p><strong>Department / Location:</strong> {asset.department || 'R&D'} - {asset.location || 'Lab 1'}</p>
+                  </div>
+                  <button
+                    className="btn btn-xs btn-secondary w-full mt-2"
+                    onClick={() => onViewProvenance(asset.tokenId)}
+                  >
+                    Inspect Provenance & Audit
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: Resource Allocation */}
+        {activeTab === 'allocate' && (
+          <div className="glass-card max-w-xl mx-auto">
+            <h3 className="card-title mb-2">Allocate Department Resource</h3>
+            <p className="text-sm text-muted mb-4">
+              As a Manager, you can assign unallocated or department resources directly to engineers.
+            </p>
+
+            <form onSubmit={handleAllocate} className="form-grid">
+              <div className="form-group">
+                <label className="label">Asset Token ID *</label>
                 <input
                   type="text"
-                  className="input mt-2"
-                  value={verifyTokenId}
-                  onChange={(e) => setVerifyTokenId(e.target.value)}
-                  placeholder="Or type Token ID (e.g. NFT-2026-PATENT-001)..."
+                  className="input"
+                  placeholder="e.g. NFT-1001"
+                  value={allocTokenId}
+                  onChange={(e) => setAllocTokenId(e.target.value)}
                   required
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary btn-block">
-                Verify On-Chain Status
+              <div className="form-group">
+                <label className="label">Target Custodian DID *</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="e.g. did:sih26125:N123456"
+                  value={allocOwnerDid}
+                  onChange={(e) => setAllocOwnerDid(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary w-full mt-2">
+                Commit Custodian Allocation
               </button>
             </form>
+          </div>
+        )}
 
-            {verifyResult && (
-              <div className={`verification-box ${verifyResult.valid ? 'box-valid' : 'box-invalid'}`}>
-                <h4>Verification Outcome: {verifyResult.valid ? 'VALID & AUTHENTIC' : 'INVALID / REVOKED'}</h4>
-                <p><strong>Token ID:</strong> {verifyResult.tokenId}</p>
-                <p><strong>Asset Name:</strong> {verifyResult.assetName || 'N/A'}</p>
-                <p><strong>Owner DID:</strong> {verifyResult.ownerDID || 'UNASSIGNED'}</p>
-                <p><strong>Owner Status:</strong> {verifyResult.ownerStatus || 'N/A'}</p>
-                <p><strong>Token Status:</strong> {verifyResult.status || 'N/A'}</p>
-              </div>
-            )}
+        {/* TAB 4: Department Personnel */}
+        {activeTab === 'dept-users' && (
+          <div className="glass-card">
+            <h3 className="card-title mb-3">Department Personnel Directory</h3>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>DID</th>
+                    <th>Role</th>
+                    <th>Department</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {didsList.map((usr) => (
+                    <tr key={usr.did}>
+                      <td><code>{usr.did}</code></td>
+                      <td><span className="type-pill">{usr.role}</span></td>
+                      <td>{usr.department || 'R&D'}</td>
+                      <td><span className={`status-pill ${usr.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{usr.status}</span></td>
+                      <td className="text-xs">{usr.createdAt ? new Date(usr.createdAt).toLocaleString() : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
-

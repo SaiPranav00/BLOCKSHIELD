@@ -7,6 +7,7 @@ const nftRoutes = require('./routes/nft.routes');
 const auditRoutes = require('./routes/audit.routes');
 const accessRoutes = require('./routes/access.routes');
 const messagesRoutes = require('./routes/messages.routes');
+const transferRoutes = require('./routes/transfer.routes');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use((req, res, next) => {
 app.use('/api/dids', identityRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/nfts', nftRoutes);
+app.use('/api/transfers', transferRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/auth', accessRoutes);
 app.use('/api/access', accessRoutes);

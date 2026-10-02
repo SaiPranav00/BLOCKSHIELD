@@ -94,6 +94,14 @@ export const getNFTHistory = (tokenId) => request(`/nfts/${encodeURIComponent(to
 export const getAuditLogs = () => request('/audit');
 export const getAuditLogsByResource = (resourceId) => request(`/audit/${encodeURIComponent(resourceId)}`);
 
+// --- Transfer Request Workflow APIs ---
+export const createTransferRequest = (payload) => request('/transfers/request', { method: 'POST', body: JSON.stringify(payload) });
+export const getPendingTransferRequests = () => request('/transfers/pending');
+export const approveTransferRequest = (requestId, payload) => request(`/transfers/${encodeURIComponent(requestId)}/approve`, { method: 'POST', body: JSON.stringify(payload) });
+export const rejectTransferRequest = (requestId, payload) => request(`/transfers/${encodeURIComponent(requestId)}/reject`, { method: 'POST', body: JSON.stringify(payload) });
+export const getTransferRequest = (requestId) => request(`/transfers/${encodeURIComponent(requestId)}`);
+export const getTransferRequestsByDID = (did) => request(`/transfers/did/${encodeURIComponent(did)}`);
+
 // --- Auth APIs ---
 export const loginUser = (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) });
 export const registerUserAcc = (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
