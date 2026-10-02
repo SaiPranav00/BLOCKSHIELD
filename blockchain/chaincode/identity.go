@@ -14,8 +14,9 @@ type Identity struct {
 	ObjectType string `json:"docType"` // "identity" for CouchDB rich query support
 	DID        string `json:"did"`
 	PublicKey  string `json:"publicKey"`
-	Role       string `json:"role"`
-	Status     string `json:"status"` // "ACTIVE", "REVOKED"
+	Role       string `json:"role"`       // "ADMIN", "MANAGER", "AUDITOR", "USER"
+	Department string `json:"department"` // e.g. "R&D", "Quality Assurance", "Avionics"
+	Status     string `json:"status"`     // "ACTIVE", "REVOKED"
 	CreatedBy  string `json:"createdBy"`
 	CreatedAt  string `json:"createdAt"`
 	UpdatedAt  string `json:"updatedAt"`
@@ -24,7 +25,7 @@ type Identity struct {
 const DIDPrefix = "did:sih26125:"
 
 // CreateDID registers a new Decentralized Identity record on the ledger
-func (s *SmartContract) CreateDID(ctx contractapi.TransactionContextInterface, did string, publicKey string, role string) (*Identity, error) {
+func (s *SmartContract) CreateDID(ctx contractapi.TransactionContextInterface, did string, publicKey string, role string, department string) (*Identity, error) {
 	if !strings.HasPrefix(did, DIDPrefix) {
 		return nil, fmt.Errorf("invalid DID format. Must start with '%s'", DIDPrefix)
 	}
@@ -55,11 +56,17 @@ func (s *SmartContract) CreateDID(ctx contractapi.TransactionContextInterface, d
 		return nil, err
 	}
 
+	dept := strings.TrimSpace(department)
+	if dept == "" {
+		dept = "R&D"
+	}
+
 	identity := Identity{
 		ObjectType: "identity",
 		DID:        did,
 		PublicKey:  publicKey,
 		Role:       validRole,
+		Department: dept,
 		Status:     "ACTIVE",
 		CreatedBy:  clientIdentity,
 		CreatedAt:  nowStr,
@@ -142,8 +149,8 @@ func (s *SmartContract) GetAllDIDs(ctx contractapi.TransactionContextInterface) 
 	return identities, nil
 }
 
-// UpdateDID updates DID details (public key or role)
-func (s *SmartContract) UpdateDID(ctx contractapi.TransactionContextInterface, did string, newPublicKey string, newRole string) (*Identity, error) {
+// UpdateDID updates DID details (public key, role, or department)
+func (s *SmartContract) UpdateDID(ctx contractapi.TransactionContextInterface, did string, newPublicKey string, newRole string, newDepartment string) (*Identity, error) {
 	identity, err := s.GetDID(ctx, did)
 	if err != nil {
 		return nil, err
@@ -162,6 +169,9 @@ func (s *SmartContract) UpdateDID(ctx contractapi.TransactionContextInterface, d
 			return nil, err
 		}
 		identity.Role = validRole
+	}
+	if newDepartment != "" {
+		identity.Department = newDepartment
 	}
 
 	txTimestamp, err := ctx.GetStub().GetTxTimestamp()

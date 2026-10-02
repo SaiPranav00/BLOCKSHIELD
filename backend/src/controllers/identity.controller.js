@@ -3,11 +3,11 @@ const { verifyDIDSignature, generateKeyPair } = require('../crypto/didCrypto');
 
 exports.createDID = async (req, res) => {
     try {
-        const { did, publicKey, role } = req.body;
+        const { did, publicKey, role, department = 'R&D' } = req.body;
         if (!did || !publicKey || !role) {
             return res.status(400).json({ success: false, error: 'Missing required parameters: did, publicKey, role' });
         }
-        const result = await submitTransaction('CreateDID', did, publicKey, role);
+        const result = await submitTransaction('CreateDID', did, publicKey, role, department);
         return res.status(201).json({ success: true, data: result });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
@@ -36,11 +36,11 @@ exports.getDID = async (req, res) => {
 exports.updateDID = async (req, res) => {
     try {
         const { did } = req.params;
-        const { newPublicKey, newRole } = req.body;
-        if (!newPublicKey && !newRole) {
-            return res.status(400).json({ success: false, error: 'At least one of newPublicKey or newRole must be provided' });
+        const { newPublicKey, newRole, newDepartment } = req.body;
+        if (!newPublicKey && !newRole && !newDepartment) {
+            return res.status(400).json({ success: false, error: 'At least one of newPublicKey, newRole, or newDepartment must be provided' });
         }
-        const result = await submitTransaction('UpdateDID', did, newPublicKey || '', newRole || '');
+        const result = await submitTransaction('UpdateDID', did, newPublicKey || '', newRole || '', newDepartment || '');
         return res.status(200).json({ success: true, data: result });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });

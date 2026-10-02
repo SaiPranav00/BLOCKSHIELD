@@ -26,28 +26,28 @@ func TestCreateDID(t *testing.T) {
 	pubKey := "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
 	role := "USER"
 
-	identity, err := contract.CreateDID(ctx, did, pubKey, role)
+	identity, err := contract.CreateDID(ctx, did, pubKey, role, "R&D")
 	if err != nil {
 		t.Fatalf("CreateDID failed: %v", err)
 	}
-	if identity.DID != did || identity.Role != "USER" || identity.Status != "ACTIVE" {
+	if identity.DID != did || identity.Role != "USER" || identity.Status != "ACTIVE" || identity.Department != "R&D" {
 		t.Errorf("Unexpected DID record created: %+v", identity)
 	}
 
 	// 2. Duplicate DID creation failure
-	_, err = contract.CreateDID(ctx, did, pubKey, role)
+	_, err = contract.CreateDID(ctx, did, pubKey, role, "R&D")
 	if err == nil {
 		t.Errorf("Expected error when creating duplicate DID, got nil")
 	}
 
 	// 3. Invalid DID prefix failure
-	_, err = contract.CreateDID(ctx, "did:other:123", pubKey, role)
+	_, err = contract.CreateDID(ctx, "did:other:123", pubKey, role, "R&D")
 	if err == nil {
 		t.Errorf("Expected error for invalid DID prefix, got nil")
 	}
 
 	// 4. Invalid Role failure
-	_, err = contract.CreateDID(ctx, "did:sih26125:user101", pubKey, "INVALID_ROLE")
+	_, err = contract.CreateDID(ctx, "did:sih26125:user101", pubKey, "INVALID_ROLE", "R&D")
 	if err == nil {
 		t.Errorf("Expected error for invalid role, got nil")
 	}
@@ -57,7 +57,7 @@ func TestGetDID(t *testing.T) {
 	contract, ctx := SetupTestContext()
 
 	did := "did:sih26125:user200"
-	_, err := contract.CreateDID(ctx, did, "pubkey_200", "MANAGER")
+	_, err := contract.CreateDID(ctx, did, "pubkey_200", "MANAGER", "Avionics")
 	if err != nil {
 		t.Fatalf("Failed to seed DID: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestGetDID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDID failed: %v", err)
 	}
-	if fetched.DID != did || fetched.Role != "MANAGER" {
+	if fetched.DID != did || fetched.Role != "MANAGER" || fetched.Department != "Avionics" {
 		t.Errorf("GetDID mismatch: %+v", fetched)
 	}
 
@@ -82,17 +82,17 @@ func TestUpdateDID(t *testing.T) {
 	contract, ctx := SetupTestContext()
 
 	did := "did:sih26125:user300"
-	_, err := contract.CreateDID(ctx, did, "old_key", "USER")
+	_, err := contract.CreateDID(ctx, did, "old_key", "USER", "R&D")
 	if err != nil {
 		t.Fatalf("Failed to seed DID: %v", err)
 	}
 
 	// 1. Update public key and role
-	updated, err := contract.UpdateDID(ctx, did, "new_key", "AUDITOR")
+	updated, err := contract.UpdateDID(ctx, did, "new_key", "AUDITOR", "Quality Assurance")
 	if err != nil {
 		t.Fatalf("UpdateDID failed: %v", err)
 	}
-	if updated.PublicKey != "new_key" || updated.Role != "AUDITOR" {
+	if updated.PublicKey != "new_key" || updated.Role != "AUDITOR" || updated.Department != "Quality Assurance" {
 		t.Errorf("UpdateDID failed to apply changes: %+v", updated)
 	}
 
@@ -102,7 +102,7 @@ func TestUpdateDID(t *testing.T) {
 		t.Fatalf("RevokeDID failed: %v", err)
 	}
 
-	_, err = contract.UpdateDID(ctx, did, "newer_key", "USER")
+	_, err = contract.UpdateDID(ctx, did, "newer_key", "USER", "R&D")
 	if err == nil {
 		t.Errorf("Expected error updating revoked DID, got nil")
 	}
@@ -112,7 +112,7 @@ func TestRevokeDID(t *testing.T) {
 	contract, ctx := SetupTestContext()
 
 	did := "did:sih26125:user400"
-	_, err := contract.CreateDID(ctx, did, "key_400", "USER")
+	_, err := contract.CreateDID(ctx, did, "key_400", "USER", "R&D")
 	if err != nil {
 		t.Fatalf("Failed to seed DID: %v", err)
 	}
@@ -139,8 +139,8 @@ func TestVerifyDID(t *testing.T) {
 	didActive := "did:sih26125:active_user"
 	didRevoked := "did:sih26125:revoked_user"
 
-	_, _ = contract.CreateDID(ctx, didActive, "key_active", "ADMIN")
-	_, _ = contract.CreateDID(ctx, didRevoked, "key_revoked", "USER")
+	_, _ = contract.CreateDID(ctx, didActive, "key_active", "ADMIN", "R&D")
+	_, _ = contract.CreateDID(ctx, didRevoked, "key_revoked", "USER", "R&D")
 	_, _ = contract.RevokeDID(ctx, didRevoked)
 
 	// 1. Verify Active DID
@@ -180,8 +180,8 @@ func TestVerifyDID(t *testing.T) {
 func TestGetAllDIDs(t *testing.T) {
 	contract, ctx := SetupTestContext()
 
-	_, _ = contract.CreateDID(ctx, "did:sih26125:d1", "key1", "USER")
-	_, _ = contract.CreateDID(ctx, "did:sih26125:d2", "key2", "ADMIN")
+	_, _ = contract.CreateDID(ctx, "did:sih26125:d1", "key1", "USER", "R&D")
+	_, _ = contract.CreateDID(ctx, "did:sih26125:d2", "key2", "ADMIN", "R&D")
 
 	list, err := contract.GetAllDIDs(ctx)
 	if err != nil {
