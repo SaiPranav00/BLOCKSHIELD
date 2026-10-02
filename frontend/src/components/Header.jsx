@@ -104,14 +104,15 @@ export default function Header({
           </span>
         </div>
 
-        {/* Communication Channel Button (Only accessible after login) */}
-        {authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING' && (
+        {/* Communication Channel Button (Accessible across all 4 roles: Admin, Manager, User, Auditor) */}
+        {(authUser || currentView === 'ADMIN' || currentView === 'MANAGER' || currentView === 'AUDITOR' || currentView === 'USER') && (
           <button
             className="btn-comm-hub"
             onClick={onOpenCommChannel}
-            title="Open Role Communication Channel"
+            title="Open Full Page Zoom Chat & Tasks"
           >
-            <span>Messages &amp; Tasks</span>
+            <span className="comm-icon">💬</span>
+            <span>Zoom Chat &amp; Tasks</span>
             {unreadCount > 0 && (
               <span className="badge-unread-count">{unreadCount}</span>
             )}
