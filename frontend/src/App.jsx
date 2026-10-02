@@ -252,7 +252,26 @@ function App() {
           activeDID={activeDID}
           notify={showToast}
           onClose={() => setShowCommChannel(false)}
+          onLedgerUpdate={fetchMetrics}
         />
+      )}
+
+      {/* Floating Chat Trigger Button - Accessible across all 4 roles */}
+      {!showCommChannel && (
+        <button
+          className="floating-chat-fab"
+          onClick={() => setShowCommChannel(true)}
+          title={`Open Full Page Zoom Chat (${activeRole})`}
+        >
+          <span className="fab-icon">💬</span>
+          <span className="fab-label">Group Chat</span>
+          <span className={`fab-role-pill role-${(activeRole || 'USER').toLowerCase()}`}>
+            {activeRole}
+          </span>
+          {unreadCount > 0 && (
+            <span className="fab-unread-badge">{unreadCount}</span>
+          )}
+        </button>
       )}
 
       {/* Auth Modal for Role Login / Sign-up */}
