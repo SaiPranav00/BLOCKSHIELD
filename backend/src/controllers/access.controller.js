@@ -39,11 +39,17 @@ exports.checkAccess = async (req, res) => {
 
 // Simple User & Role Credential Store (Single System Admin: did:sih26125:ADMIN001)
 const userCredentials = new Map([
-    ['did:sih26125:ADMIN001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Admin System Account' }],
-    ['did:sih26125:MANAGER001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Manager System Account' }],
-    ['did:sih26125:AUDITOR001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Auditor System Account' }],
-    ['did:sih26125:USER001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Standard User Account' }],
-    ['did:sih26125:CITIZEN_KUMAR', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Standard User Account' }],
+    ['did:sih26125:ADMIN001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Marcus Chen' }],
+    ['did:sih26125:ADMIN-001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Marcus Chen' }],
+    ['did:sih26125:MANAGER001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
+    ['did:sih26125:MANAGER-001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
+    ['did:sih26125:MANAGER-002', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
+    ['did:sih26125:AUDITOR001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Priya Nair' }],
+    ['did:sih26125:AUDITOR-001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Priya Nair' }],
+    ['did:sih26125:USER001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
+    ['did:sih26125:USER-001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
+    ['did:sih26125:USER-014', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
+    ['did:sih26125:CITIZEN_KUMAR', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Rajesh Kumar' }],
 ]);
 
 exports.getUserCredentials = () => userCredentials;
@@ -61,7 +67,7 @@ exports.login = async (req, res) => {
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
 
-        const cred = userCredentials.get(cleanDid);
+        const cred = userCredentials.get(cleanDid) || userCredentials.get(cleanDid.replace('did:sih26125:', ''));
         if (cred && cred.password !== password) {
             return res.status(401).json({ success: false, error: 'Invalid credentials password' });
         }
@@ -71,7 +77,7 @@ exports.login = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 authenticated: false,
-                error: `Registration request for ${cleanDid} is PENDING Admin approval. You will gain access once Admin accepts your request.`
+                error: `Account request for ${cleanDid} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors.`
             });
         }
 
@@ -90,7 +96,7 @@ exports.login = async (req, res) => {
             if (!cred) {
                 return res.status(403).json({
                     success: false,
-                    error: `Identity ${cleanDid} is not registered or approved by Admin.`
+                    error: `Identity ${cleanDid} is not registered. Only the Administrator can create accounts for Users, Managers, and Auditors.`
                 });
             }
         }
@@ -110,7 +116,16 @@ exports.login = async (req, res) => {
 
 exports.registerUser = async (req, res) => {
     try {
-        const { username, password, role = 'USER' } = req.body;
+        const {
+            username,
+            password,
+            role = 'USER',
+            userCategory = 'NON_DEFENCE', // 'DEFENCE' | 'SOFTWARE' | 'NON_DEFENCE'
+            idProofType,
+            idProofNumber,
+            orgProof = {}
+        } = req.body;
+
         if (!username || !password) {
             return res.status(400).json({ success: false, error: 'Username and password are required' });
         }
@@ -130,24 +145,45 @@ exports.registerUser = async (req, res) => {
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
 
-        // Register user account in PENDING_APPROVAL status
-        userCredentials.set(cleanDid, { password, role: targetRole, status: 'PENDING_APPROVAL', name: username });
+        // Under BLOCKSHIELD enterprise governance:
+        // Admin is the sole authority who can create accounts for Users, Managers, and Auditors.
+        // Self-service registration enters PENDING_APPROVAL and queues for Admin approval.
+        const accountStatus = 'PENDING_APPROVAL';
 
-        // Dispatch automatic USER_SIGNUP_REQ task to Admin channel
+        userCredentials.set(cleanDid, {
+            password,
+            role: targetRole,
+            status: accountStatus,
+            name: username,
+            userCategory,
+            idProofType,
+            idProofNumber,
+            orgProof,
+            appliedAt: new Date().toISOString()
+        });
+
+        // Dispatch registration task to Admin channel
         const { addSystemSignupTask } = require('./messages.controller');
         addSystemSignupTask({
             did: cleanDid,
             username: cleanDid.replace('did:sih26125:', ''),
             requestedRole: targetRole,
+            userCategory,
+            idProofType,
+            idProofNumber,
+            orgProof,
+            status: accountStatus
         });
 
         return res.status(201).json({
             success: true,
+            verified: false,
             did: cleanDid,
             role: targetRole,
-            status: 'PENDING_APPROVAL',
+            status: accountStatus,
+            userCategory,
             username: cleanDid.replace('did:sih26125:', ''),
-            message: 'Signup request submitted to Admin! Dashboard access will be unlocked upon Admin approval.'
+            message: `Access application submitted! In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors. Your application is queued for Admin review.`
         });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });

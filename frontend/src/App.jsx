@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
-import CentralPortal from './components/CentralPortal';
-import AdminLanding from './components/AdminLanding';
-import AdminView from './components/AdminView';
-import ManagerView from './components/ManagerView';
-import AuditorView from './components/AuditorView';
-import UserView from './components/UserView';
+import { CentralPortal } from './features/portal';
+import { AdminLanding, AdminView } from './features/admin';
+import { ManagerView } from './features/manager';
+import { AuditorView } from './features/auditor';
+import { UserView } from './features/user';
+import { CommunicationChannel } from './features/communication';
 import ProvenanceModal from './components/ProvenanceModal';
-import CommunicationChannel from './components/CommunicationChannel';
 import AuthModal from './components/AuthModal';
 import Toast from './components/Toast';
 import { checkHealth, getNFTHistory, getAllDIDs, getAllNFTs, getAuditLogs, getMessages } from './services/api';
@@ -164,22 +163,23 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${currentView === 'PORTAL' ? 'portal-app-wrapper' : ''}`}>
       {/* Toast Alert Notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Global Header Bar */}
-      <Header
-        systemStatus={systemStatus}
-        activeRole={activeRole}
-        currentView={currentView}
-        onReturnHome={handleReturnHome}
-        onSelectRole={handleSelectRoleFromPortal}
-        onOpenCommChannel={() => setShowCommChannel(true)}
-        authUser={authUser}
-        onLogout={handleLogout}
-        unreadCount={unreadCount}
-      />
+      {/* Global Header Bar (Shown when inside a workspace or dedicated page) */}
+      {currentView !== 'PORTAL' && (
+        <Header
+          activeRole={activeRole}
+          activeDID={activeDID}
+          currentView={currentView}
+          onReturnHome={handleReturnHome}
+          onOpenCommChannel={() => setShowCommChannel(true)}
+          authUser={authUser}
+          onLogout={handleLogout}
+          unreadCount={unreadCount}
+        />
+      )}
 
       {/* Main Viewport */}
       <main className="main-viewport">
@@ -189,6 +189,8 @@ function App() {
             metrics={metrics}
             systemStatus={systemStatus}
             onSelectRole={handleSelectRoleFromPortal}
+            authUser={authUser}
+            onLogout={handleLogout}
           />
         )}
 
@@ -215,6 +217,7 @@ function App() {
             onViewProvenance={handleOpenProvenance}
             onMetricsUpdate={handleMetricsUpdate}
             onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
 
@@ -224,6 +227,8 @@ function App() {
             activeDID={activeDID}
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
+            onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
 
@@ -232,6 +237,8 @@ function App() {
           <AuditorView
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
+            onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
 
@@ -241,6 +248,8 @@ function App() {
             activeDID={activeDID}
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
+            onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
       </main>

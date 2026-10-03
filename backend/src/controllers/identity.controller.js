@@ -8,6 +8,31 @@ exports.createDID = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Missing required parameters: did, publicKey, role' });
         }
         const result = await submitTransaction('CreateDID', did, publicKey, role, department);
+
+        // Under BLOCKSHIELD security governance, Admin is the authority creating accounts.
+        // Sync new account into userCredentials as ACTIVE so user/manager/auditor can immediately log in.
+        try {
+            const { getUserCredentials } = require('./access.controller');
+            const creds = getUserCredentials();
+            const credObj = {
+                password: req.body.password || 'password123',
+                role: (role || 'USER').toUpperCase(),
+                status: 'ACTIVE',
+                name: did.replace('did:sih26125:', ''),
+                department: department || 'R&D',
+                userCategory: req.body.userCategory || 'DEFENCE',
+                idProofType: req.body.idProofType || 'GOVERNMENT_ID',
+                idProofNumber: req.body.idProofNumber || 'ADMIN_VERIFIED',
+                orgProof: req.body.orgProof || { department, verifiedBy: 'ADMIN001' }
+            };
+            creds.set(did, credObj);
+            const shortDid = did.replace('did:sih26125:', '');
+            creds.set(shortDid, credObj);
+            console.log(`[Admin Created Account] Successfully provisioned ${did} (${shortDid}) as ${role} [${credObj.userCategory}]`);
+        } catch (e) {
+            console.error('[CreateDID Credential Sync Error]', e.message);
+        }
+
         return res.status(201).json({ success: true, data: result });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });

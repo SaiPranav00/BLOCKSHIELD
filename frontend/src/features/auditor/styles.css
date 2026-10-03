@@ -1,0 +1,130 @@
+/* ==============================================================================
+   AUDITOR WORKSPACE SPECIFIC EXTENSIONS
+   Matches the Auditor Audit & Compliance Reference Mockup
+   ============================================================================== */
+
+.auditor-overview-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .auditor-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auditor-activity-id {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #1e293b;
+  margin-top: 0.15rem;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: -0.01em;
+}
+
+.auditor-field-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  display: block;
+  margin-bottom: 0.45rem;
+}
+
+.auditor-verify-input-group {
+  display: flex;
+  align-items: stretch;
+  margin-top: 0.25rem;
+}
+
+.auditor-verify-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border: 1px solid #e2e8f0;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  padding: 0.7rem 0.95rem;
+  font-size: 0.88rem;
+  background: #f8fafc;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.auditor-verify-input:focus {
+  background: #ffffff;
+  border-color: #2563eb;
+}
+
+.auditor-btn-verify {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  border-radius: 0 8px 8px 0;
+  padding: 0.7rem 1.35rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.auditor-btn-verify:hover {
+  background: #1e40af;
+}
+
+.auditor-info-note {
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.auditor-btn-open-provenance {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #0f172a;
+  margin-top: 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.auditor-btn-open-provenance:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1d4ed8;
+}
+
+.btn-inspect-link {
+  background: transparent;
+  border: none;
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.btn-inspect-link:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
