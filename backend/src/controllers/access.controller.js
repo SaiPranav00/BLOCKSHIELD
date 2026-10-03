@@ -67,7 +67,7 @@ exports.login = async (req, res) => {
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
 
-        const cred = userCredentials.get(cleanDid);
+        const cred = userCredentials.get(cleanDid) || userCredentials.get(cleanDid.replace('did:sih26125:', ''));
         if (cred && cred.password !== password) {
             return res.status(401).json({ success: false, error: 'Invalid credentials password' });
         }
@@ -77,7 +77,7 @@ exports.login = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 authenticated: false,
-                error: `Registration request for ${cleanDid} is PENDING Admin approval. You will gain access once Admin accepts your request.`
+                error: `Account request for ${cleanDid} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors.`
             });
         }
 
@@ -96,7 +96,7 @@ exports.login = async (req, res) => {
             if (!cred) {
                 return res.status(403).json({
                     success: false,
-                    error: `Identity ${cleanDid} is not registered or approved by Admin.`
+                    error: `Identity ${cleanDid} is not registered. Only the Administrator can create accounts for Users, Managers, and Auditors.`
                 });
             }
         }
@@ -123,8 +123,7 @@ exports.registerUser = async (req, res) => {
             userCategory = 'NON_DEFENCE', // 'DEFENCE' | 'SOFTWARE' | 'NON_DEFENCE'
             idProofType,
             idProofNumber,
-            orgProof = {},
-            autoVerify = false
+            orgProof = {}
         } = req.body;
 
         if (!username || !password) {
@@ -146,18 +145,11 @@ exports.registerUser = async (req, res) => {
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
 
-        // Check if organization verification criteria are satisfied
-        const authCodeUpper = (orgProof.authCode || orgProof.orgAuthCode || '').toUpperCase();
-        const isVerified = Boolean(
-            autoVerify ||
-            (userCategory === 'DEFENCE' && (authCodeUpper.includes('BEL') || authCodeUpper.includes('DEF') || orgProof.serviceId)) ||
-            (userCategory === 'SOFTWARE' && (authCodeUpper.includes('TECH') || orgProof.employeeId)) ||
-            (userCategory === 'NON_DEFENCE' && idProofNumber)
-        );
+        // Under BLOCKSHIELD enterprise governance:
+        // Admin is the sole authority who can create accounts for Users, Managers, and Auditors.
+        // Self-service registration enters PENDING_APPROVAL and queues for Admin approval.
+        const accountStatus = 'PENDING_APPROVAL';
 
-        const accountStatus = isVerified ? 'ACTIVE' : 'PENDING_APPROVAL';
-
-        // Register user account in userCredentials
         userCredentials.set(cleanDid, {
             password,
             role: targetRole,
@@ -167,20 +159,10 @@ exports.registerUser = async (req, res) => {
             idProofType,
             idProofNumber,
             orgProof,
-            verifiedAt: isVerified ? new Date().toISOString() : null
+            appliedAt: new Date().toISOString()
         });
 
-        // If verified, register on Fabric ledger immediately
-        if (isVerified) {
-            try {
-                const { submitTransaction } = require('../fabric/gateway');
-                await submitTransaction('CreateIdentity', cleanDid, 'RSA-2048-PUBKEY', targetRole, orgProof.department || 'General');
-            } catch (e) {
-                console.log('[Register Ledger Auto-Create Notice]', e.message);
-            }
-        }
-
-        // Dispatch automatic USER_SIGNUP_REQ task to Admin channel
+        // Dispatch registration task to Admin channel
         const { addSystemSignupTask } = require('./messages.controller');
         addSystemSignupTask({
             did: cleanDid,
@@ -195,15 +177,13 @@ exports.registerUser = async (req, res) => {
 
         return res.status(201).json({
             success: true,
-            verified: isVerified,
+            verified: false,
             did: cleanDid,
             role: targetRole,
             status: accountStatus,
             userCategory,
             username: cleanDid.replace('did:sih26125:', ''),
-            message: isVerified
-                ? `Organization verified! DID ${cleanDid} has been generated and activated on Hyperledger Fabric. You can log in immediately.`
-                : `Signup request submitted with ${userCategory} proofs! Access will be unlocked upon Admin review.`
+            message: `Access application submitted! In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors. Your application is queued for Admin review.`
         });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });

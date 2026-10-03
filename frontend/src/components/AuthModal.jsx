@@ -177,12 +177,12 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
               <span className="modal-kicker-tag">BLOCKSHIELD ENTERPRISE IDENTITY &amp; ACCESS</span>
               <h2 className="auth-modal-title">
                 <span className="role-icon-inline">{roleIcons[targetRole] || '🔐'}</span>
-                {mode === 'login' ? `${targetRole} Workspace Access` : `Create Verified ${targetRole} Account`}
+                {mode === 'login' ? `${targetRole} Workspace Access` : `Request ${targetRole} Account (Admin Creation)`}
               </h2>
               <p className="modal-intro">
                 {mode === 'login'
                   ? `Enter registered credentials to access the ${targetRole} workspace.`
-                  : `Select your organization category and provide proofs to generate your DID.`}
+                  : `In accordance with BlockShield enterprise governance, only the System Administrator can create accounts and issue DIDs. Submit your verification proofs for Admin approval.`}
               </p>
             </div>
             {onClose && (
@@ -211,7 +211,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
               className={`segmented-tab ${mode === 'register' ? 'active' : ''}`}
               onClick={() => { setMode('register'); setErrorMsg(''); setSuccessInfo(null); }}
             >
-              Create Account
+              Request Account (Admin Verified)
             </button>
           </div>
 
@@ -294,9 +294,17 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             </div>
           )}
 
-          {/* MODE 2: MULTI-CATEGORY REGISTRATION */}
+          {/* MODE 2: MULTI-CATEGORY REGISTRATION REQUEST */}
           {mode === 'register' && (
             <div className="form-layout">
+              {/* Exclusive Admin Authority Policy Notice */}
+              <div className="admin-governance-notice" style={{ marginBottom: '1.25rem' }}>
+                <span className="notice-icon">🛡️</span>
+                <div>
+                  <strong>Enterprise Policy:</strong> In BlockShield, the System Administrator is the <u>sole authorized person</u> who can create accounts and issue DIDs for Users, Managers, and Auditors. Submitting this form sends your verification proofs to the Administrator's queue for review and ledger provisioning.
+                </div>
+              </div>
+
               {/* STEP 1: USER TYPE SELECTION */}
               <div className="user-type-selector">
                 <label className="label">1. Select User Category / Affiliation:</label>
@@ -593,8 +601,8 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
               <button type="submit" className="btn btn-primary btn-block btn-lg mt-2" disabled={loading}>
                 <span>
                   {loading
-                    ? 'Verifying Organization & Creating DID on Fabric...'
-                    : `Verify Proofs & Create ${targetRole} DID Account`}
+                    ? 'Submitting Request to Administrator...'
+                    : `Submit Access Request for Admin Approval & Creation`}
                 </span>
                 <span className="btn-arrow-right">→</span>
               </button>
@@ -605,13 +613,13 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           <div className="auth-toggle-row">
             {mode === 'login' ? (
               <p className="auth-toggle-text">
-                Need a new verifiable identity?{' '}
+                Need an account on BlockShield?{' '}
                 <button
                   type="button"
                   className="btn-link-action"
                   onClick={() => { setMode('register'); setErrorMsg(''); setSuccessInfo(null); }}
                 >
-                  Create Verified Account
+                  Request Account (Admin Verified)
                 </button>
               </p>
             ) : (

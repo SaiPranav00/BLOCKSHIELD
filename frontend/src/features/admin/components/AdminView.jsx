@@ -36,8 +36,34 @@ export default function AdminView({
 
   const [newDidInput, setNewDidInput] = useState('');
   const [newRoleInput, setNewRoleInput] = useState('USER');
-  const [newDeptInput, setNewDeptInput] = useState('R&D');
+  const [newDeptInput, setNewDeptInput] = useState('BEL Radar Systems');
   const [generatedKey, setGeneratedKey] = useState('');
+  const [adminUserCategory, setAdminUserCategory] = useState('DEFENCE');
+  const [adminIdProofType, setAdminIdProofType] = useState('GOVERNMENT_ID');
+  const [adminIdProofNumber, setAdminIdProofNumber] = useState('');
+  const [adminServiceId, setAdminServiceId] = useState('');
+  const [adminEmployeeId, setAdminEmployeeId] = useState('');
+  const [adminCompanyEmail, setAdminCompanyEmail] = useState('');
+  const [adminOrgAuthCode, setAdminOrgAuthCode] = useState('BEL-SEC-2026');
+  const [adminOrgName, setAdminOrgName] = useState('');
+  const [adminUserPassword, setAdminUserPassword] = useState('password123');
+
+  const handleAdminCategoryChange = (cat) => {
+    setAdminUserCategory(cat);
+    if (cat === 'DEFENCE') {
+      setAdminIdProofType('GOVERNMENT_ID');
+      setNewDeptInput('BEL Radar Systems');
+      setAdminOrgAuthCode('BEL-SEC-2026');
+    } else if (cat === 'SOFTWARE') {
+      setAdminIdProofType('AADHAAR');
+      setNewDeptInput('Software Systems Division');
+      setAdminOrgAuthCode('TECH-AUTH-2026');
+    } else {
+      setAdminIdProofType('AADHAAR');
+      setNewDeptInput('Civilian Services');
+      setAdminOrgAuthCode('');
+    }
+  };
 
   const [revokeDidInput, setRevokeDidInput] = useState('');
 
@@ -108,7 +134,7 @@ export default function AdminView({
 
   const handleCreateDID = async (e) => {
     e.preventDefault();
-    if (!newDidInput.trim()) return notify('Please enter a DID identifier', 'error');
+    if (!newDidInput.trim()) return notify('Please enter a username or DID identifier', 'error');
 
     let cleanDid = newDidInput.trim();
     if (!cleanDid.startsWith('did:sih26125:')) {
@@ -117,15 +143,40 @@ export default function AdminView({
     }
 
     try {
+      const orgProof = {
+        department: newDeptInput || (adminUserCategory === 'DEFENCE' ? 'BEL Radar Systems' : 'Technology Unit'),
+        verifiedBy: 'did:sih26125:ADMIN001',
+      };
+      if (adminUserCategory === 'DEFENCE') {
+        orgProof.serviceId = adminServiceId || 'BEL-SRV-AUTO';
+        orgProof.authCode = adminOrgAuthCode || 'BEL-SEC-2026';
+      } else if (adminUserCategory === 'SOFTWARE') {
+        orgProof.employeeId = adminEmployeeId || 'TECH-EMP-AUTO';
+        orgProof.companyEmail = adminCompanyEmail || 'engineer@tech.bel.in';
+        orgProof.authCode = adminOrgAuthCode || 'TECH-AUTH-2026';
+      } else {
+        orgProof.orgName = adminOrgName || 'Civilian / General';
+      }
+
       await createDID({
         did: cleanDid,
         publicKey: generatedKey || 'RSA-2048-PUBKEY-AUTO-GEN',
         role: newRoleInput,
-        department: newDeptInput || 'R&D',
+        department: newDeptInput || orgProof.department,
+        userCategory: adminUserCategory,
+        idProofType: adminIdProofType,
+        idProofNumber: adminIdProofNumber || 'ADMIN_VERIFIED_DOC',
+        password: adminUserPassword || 'password123',
+        orgProof,
       });
-      notify(`Identity ${cleanDid} registered as ${newRoleInput} in ${newDeptInput || 'R&D'}`, 'success');
+
+      notify(`Account ${cleanDid} successfully created on Fabric as ${newRoleInput} [${adminUserCategory}]! Password: ${adminUserPassword || 'password123'}`, 'success');
       setNewDidInput('');
       setGeneratedKey('');
+      setAdminIdProofNumber('');
+      setAdminServiceId('');
+      setAdminEmployeeId('');
+      setAdminCompanyEmail('');
       refreshData();
     } catch (err) {
       const errMsg = err.message || '';
@@ -863,70 +914,281 @@ export default function AdminView({
           {activeTab === 'identities' && (
             <div className="card-grid">
               <div className="glass-card">
-                <h3 className="card-title">Register Identity (DID)</h3>
-                <p className="card-desc">Registers a DID string with an RSA public key &amp; role on the BlockShield Fabric ledger.</p>
-                
+                <div className="flex-between card-header-row mb-2">
+                  <div>
+                    <h3 className="card-title">Create Account &amp; Provision Identity</h3>
+                    <p className="card-desc">Sole Administrative authority to create verified accounts for Users, Managers, and Auditors.</p>
+                  </div>
+                  <span className="badge badge-accent">🛡️ Admin Authority Only</span>
+                </div>
+
+                {/* Exclusive Policy Notice */}
+                <div className="admin-governance-notice">
+                  <span className="notice-icon">🛡️</span>
+                  <div>
+                    <strong>Enterprise Security Policy:</strong> In BlockShield, the System Administrator is the <u>sole authority</u> authorized to create accounts and issue DIDs on Hyperledger Fabric for every <strong>User</strong>, <strong>Manager</strong>, and <strong>Auditor</strong>.
+                  </div>
+                </div>
+
                 <form onSubmit={handleCreateDID} className="form-layout">
+                  {/* Step 1: Select Target Role */}
                   <div className="form-group">
-                    <label className="label">DID Identifier:</label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={newDidInput}
-                      onChange={(e) => setNewDidInput(e.target.value)}
-                      placeholder="e.g. ORG_ISRO or did:sih26125:ORG_ISRO"
-                      required
-                    />
-                    <p className="text-xs text-muted mt-1">Auto-prefixed with <code>did:sih26125:</code> if omitted.</p>
+                    <label className="label">1. Target Account Role:</label>
+                    <div className="role-chips-grid">
+                      <button
+                        type="button"
+                        className={`role-chip-btn ${newRoleInput === 'USER' ? 'active' : ''}`}
+                        onClick={() => setNewRoleInput('USER')}
+                      >
+                        <span>👤 USER</span>
+                        <span className="role-chip-desc">Standard Client / Personnel</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`role-chip-btn ${newRoleInput === 'MANAGER' ? 'active' : ''}`}
+                        onClick={() => setNewRoleInput('MANAGER')}
+                      >
+                        <span>💼 MANAGER</span>
+                        <span className="role-chip-desc">Asset Allocator &amp; Verifier</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`role-chip-btn ${newRoleInput === 'AUDITOR' ? 'active' : ''}`}
+                        onClick={() => setNewRoleInput('AUDITOR')}
+                      >
+                        <span>🔍 AUDITOR</span>
+                        <span className="role-chip-desc">Forensic &amp; Compliance Inspector</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Select User Category */}
+                  <div className="form-group">
+                    <label className="label">2. User Category / Clearance Profile:</label>
+                    <div className="category-tabs-row">
+                      <button
+                        type="button"
+                        className={`category-tab-btn ${adminUserCategory === 'DEFENCE' ? 'active' : ''}`}
+                        onClick={() => handleAdminCategoryChange('DEFENCE')}
+                      >
+                        🛡️ Defence / Government
+                      </button>
+                      <button
+                        type="button"
+                        className={`category-tab-btn ${adminUserCategory === 'SOFTWARE' ? 'active' : ''}`}
+                        onClick={() => handleAdminCategoryChange('SOFTWARE')}
+                      >
+                        💻 Software / Technology
+                      </button>
+                      <button
+                        type="button"
+                        className={`category-tab-btn ${adminUserCategory === 'NON_DEFENCE' ? 'active' : ''}`}
+                        onClick={() => handleAdminCategoryChange('NON_DEFENCE')}
+                      >
+                        🌐 Non-Defence
+                      </button>
+                    </div>
+
+                    {/* Proof Requirements Guide Box */}
+                    <div className="proof-rules-box">
+                      <div className="proof-rules-header">
+                        <span>📋</span> Required Verification Proofs for {adminUserCategory.replace('_', ' ')}:
+                      </div>
+                      {adminUserCategory === 'DEFENCE' && (
+                        <div className="proof-rules-item">
+                          • <strong>Identity Proof:</strong> Government ID or Passport<br />
+                          • <strong>Organization Proof:</strong> Official Service/Employee ID + Organization Verification Code (e.g. BEL, MoD, DRDO)
+                        </div>
+                      )}
+                      {adminUserCategory === 'SOFTWARE' && (
+                        <div className="proof-rules-item">
+                          • <strong>Identity Proof:</strong> Aadhaar / Passport / Driving Licence<br />
+                          • <strong>Organization Proof:</strong> Employee ID + Official Company Email + Org Authorization Code
+                        </div>
+                      )}
+                      {adminUserCategory === 'NON_DEFENCE' && (
+                        <div className="proof-rules-item">
+                          • <strong>Identity Proof:</strong> Aadhaar / Passport / Driving Licence / Voter ID<br />
+                          • <strong>Organization Proof:</strong> Optional Affiliation (Public Citizen / Vendor)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Step 3: Account Identifier, Password & Department */}
+                  <div className="form-two-cols">
+                    <div className="form-group">
+                      <label className="label">Account Username / DID:</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={newDidInput}
+                        onChange={(e) => setNewDidInput(e.target.value)}
+                        placeholder="e.g. BEL_RADAR_01 or USER-042"
+                        required
+                      />
+                      <p className="text-xs text-muted mt-1">
+                        Will be issued as: <code>{newDidInput ? (newDidInput.startsWith('did:sih26125:') ? newDidInput : `did:sih26125:${newDidInput}`) : 'did:sih26125:<username>'}</code>
+                      </p>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Initial Account Password:</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={adminUserPassword}
+                        onChange={(e) => setAdminUserPassword(e.target.value)}
+                        placeholder="Default: password123"
+                        required
+                      />
+                      <p className="text-xs text-muted mt-1">Temporary password provisioned for initial login.</p>
+                    </div>
                   </div>
 
                   <div className="form-group">
-                    <label className="label">Department / Unit:</label>
+                    <label className="label">Department / Unit / Org Division:</label>
                     <input
                       type="text"
                       className="input"
                       value={newDeptInput}
                       onChange={(e) => setNewDeptInput(e.target.value)}
-                      placeholder="e.g. R&amp;D, Avionics, Quality Control"
+                      placeholder="e.g. BEL Radar Systems, Avionics, Audit Division"
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="label">Assigned Role:</label>
-                    <select
-                      className="input styled-select"
-                      value={newRoleInput}
-                      onChange={(e) => setNewRoleInput(e.target.value)}
-                    >
-                      <option value="USER">USER (Standard Citizen / Client)</option>
-                      <option value="MANAGER">MANAGER (Asset Allocator / Verifier)</option>
-                      <option value="AUDITOR">AUDITOR (Compliance Inspector)</option>
-                    </select>
-                    <p className="text-xs text-muted mt-1">Note: Primary System Administrator is pre-provisioned (<code>did:sih26125:ADMIN001</code>).</p>
+                  {/* Step 4: Category-Specific Proofs */}
+                  <div className="form-two-cols">
+                    <div className="form-group">
+                      <label className="label">Identity Proof Document Type:</label>
+                      <select
+                        className="input styled-select"
+                        value={adminIdProofType}
+                        onChange={(e) => setAdminIdProofType(e.target.value)}
+                      >
+                        {adminUserCategory === 'DEFENCE' && (
+                          <>
+                            <option value="GOVERNMENT_ID">Government ID / Defence Card</option>
+                            <option value="PASSPORT">Official Passport</option>
+                          </>
+                        )}
+                        {adminUserCategory === 'SOFTWARE' && (
+                          <>
+                            <option value="AADHAAR">Aadhaar Card (UIDAI)</option>
+                            <option value="PASSPORT">Passport</option>
+                            <option value="DRIVING_LICENCE">Driving Licence</option>
+                          </>
+                        )}
+                        {adminUserCategory === 'NON_DEFENCE' && (
+                          <>
+                            <option value="AADHAAR">Aadhaar Card</option>
+                            <option value="PASSPORT">Passport</option>
+                            <option value="DRIVING_LICENCE">Driving Licence</option>
+                            <option value="VOTER_ID">Voter ID</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Identity Document Number:</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={adminIdProofNumber}
+                        onChange={(e) => setAdminIdProofNumber(e.target.value)}
+                        placeholder={adminUserCategory === 'DEFENCE' ? 'e.g. GOV-IND-49201' : adminUserCategory === 'SOFTWARE' ? 'e.g. AADHAAR-9921-3810' : 'e.g. DL-KA-2024-9981'}
+                      />
+                    </div>
                   </div>
 
+                  {/* Category-Specific Organization Fields */}
+                  {adminUserCategory === 'DEFENCE' && (
+                    <div className="form-two-cols">
+                      <div className="form-group">
+                        <label className="label">Official Service / Employee ID:</label>
+                        <input
+                          type="text"
+                          className="input"
+                          value={adminServiceId}
+                          onChange={(e) => setAdminServiceId(e.target.value)}
+                          placeholder="e.g. BEL-SRV-2026 or MOD-OFF-882"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Organization Clearance Code:</label>
+                        <input
+                          type="text"
+                          className="input"
+                          value={adminOrgAuthCode}
+                          onChange={(e) => setAdminOrgAuthCode(e.target.value)}
+                          placeholder="e.g. BEL-SEC-2026"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {adminUserCategory === 'SOFTWARE' && (
+                    <div className="form-two-cols">
+                      <div className="form-group">
+                        <label className="label">Corporate Employee ID:</label>
+                        <input
+                          type="text"
+                          className="input"
+                          value={adminEmployeeId}
+                          onChange={(e) => setAdminEmployeeId(e.target.value)}
+                          placeholder="e.g. TECH-EMP-7712"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Official Company Email:</label>
+                        <input
+                          type="email"
+                          className="input"
+                          value={adminCompanyEmail}
+                          onChange={(e) => setAdminCompanyEmail(e.target.value)}
+                          placeholder="e.g. engineer@techpartner.bel.in"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {adminUserCategory === 'NON_DEFENCE' && (
+                    <div className="form-group">
+                      <label className="label">Organization Affiliation (Optional):</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={adminOrgName}
+                        onChange={(e) => setAdminOrgName(e.target.value)}
+                        placeholder="e.g. General Citizen, Independent Vendor, Academic Partner"
+                      />
+                    </div>
+                  )}
+
+                  {/* Cryptographic Public Key */}
                   <div className="form-group">
-                    <label className="label">Public Key (Optional / Keypair):</label>
+                    <label className="label">RSA Cryptographic Public Key:</label>
                     <div className="flex-gap">
                       <input
                         type="text"
                         className="input"
                         value={generatedKey}
                         onChange={(e) => setGeneratedKey(e.target.value)}
-                        placeholder="Click 'Generate Keypair' or enter RSA Public Key..."
+                        placeholder="Auto-generated or click 'Generate Keypair'..."
                       />
                       <button
                         type="button"
                         className="btn btn-secondary btn-nowrap"
                         onClick={handleGenKeyPair}
                       >
-                        Generate Keypair
+                        🔑 Generate Keypair
                       </button>
                     </div>
                   </div>
 
                   <button type="submit" className="btn btn-primary btn-block">
-                    Register New Identity
+                    🛡️ Create &amp; Issue {newRoleInput} Account on Ledger
                   </button>
                 </form>
               </div>
