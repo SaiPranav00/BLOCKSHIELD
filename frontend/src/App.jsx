@@ -250,6 +250,8 @@ function App() {
             activeDID={activeDID}
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
+            onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
       </main>
