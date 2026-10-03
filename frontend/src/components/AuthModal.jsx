@@ -7,17 +7,54 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
   const defaultDemo = DEMO_USERS.find(u => u.role === targetRole) || DEMO_USERS[0];
 
   const [mode, setMode] = useState('login'); // 'login' or 'register'
+
+  // Login Form States
   const [identityInput, setIdentityInput] = useState(defaultDemo.username);
   const [passwordInput, setPasswordInput] = useState(defaultDemo.password);
+
+  // Multi-Category Registration States
+  const [userCategory, setUserCategory] = useState('DEFENCE'); // 'DEFENCE' | 'SOFTWARE' | 'NON_DEFENCE'
+  const [regUsername, setRegUsername] = useState('');
+  const [regPassword, setRegPassword] = useState('password123');
+  
+  // Identity Proof States
+  const [idProofType, setIdProofType] = useState('GOVERNMENT_ID');
+  const [idProofNumber, setIdProofNumber] = useState('');
+
+  // Organization Proof States
+  const [serviceId, setServiceId] = useState('');
+  const [department, setDepartment] = useState('');
+  const [orgAuthCode, setOrgAuthCode] = useState('BEL-SEC-2026');
+  const [employeeId, setEmployeeId] = useState('');
+  const [companyEmail, setCompanyEmail] = useState('');
+  const [orgName, setOrgName] = useState('');
+  const [orgIdOptional, setOrgIdOptional] = useState('');
+
   const [docFile, setDocFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successInfo, setSuccessInfo] = useState(null);
 
   const roleIcons = {
     ADMIN: '🛡️',
     MANAGER: '💼',
     AUDITOR: '🔍',
     USER: '👤',
+  };
+
+  const handleSelectCategory = (cat) => {
+    setUserCategory(cat);
+    setErrorMsg('');
+    if (cat === 'DEFENCE') {
+      setIdProofType('GOVERNMENT_ID');
+      setOrgAuthCode('BEL-SEC-2026');
+    } else if (cat === 'SOFTWARE') {
+      setIdProofType('AADHAAR');
+      setOrgAuthCode('TECH-AUTH-2026');
+    } else {
+      setIdProofType('AADHAAR');
+      setOrgAuthCode('');
+    }
   };
 
   const handleFileChange = (e) => {
@@ -42,14 +79,15 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessInfo(null);
 
-    if (!identityInput.trim() || !passwordInput.trim()) {
-      return setErrorMsg('Please fill in both identity/username and password');
-    }
+    if (mode === 'login') {
+      if (!identityInput.trim() || !passwordInput.trim()) {
+        return setErrorMsg('Please enter both identity/username and password');
+      }
 
-    setLoading(true);
-    try {
-      if (mode === 'login') {
+      setLoading(true);
+      try {
         const res = await loginUser({
           identity: identityInput.trim(),
           password: passwordInput.trim(),
@@ -64,22 +102,68 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             documentAttached: !!docFile,
           });
         }
-      } else {
+      } catch (err) {
+        setErrorMsg(err.message || 'Authentication failed. Please check credentials.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Registration validation based on User Category
+      if (!regUsername.trim() || !regPassword.trim()) {
+        return setErrorMsg('Please choose a username and password.');
+      }
+      if (!idProofNumber.trim()) {
+        return setErrorMsg('Identity proof document number is required.');
+      }
+
+      if (userCategory === 'DEFENCE' && !serviceId.trim()) {
+        return setErrorMsg('Official Service/Employee ID is required for Defence/Government accounts.');
+      }
+      if (userCategory === 'SOFTWARE' && (!employeeId.trim() || !companyEmail.trim())) {
+        return setErrorMsg('Employee ID and Official Company Email are required for Software/Technology accounts.');
+      }
+
+      setLoading(true);
+      try {
+        const orgProofData = {
+          serviceId: serviceId.trim(),
+          department: department.trim() || (userCategory === 'DEFENCE' ? 'BEL Radar Systems' : 'Technology Unit'),
+          authCode: orgAuthCode.trim(),
+          employeeId: employeeId.trim(),
+          companyEmail: companyEmail.trim(),
+          orgName: orgName.trim(),
+          orgIdOptional: orgIdOptional.trim(),
+        };
+
         const res = await registerUserAcc({
-          username: identityInput.trim(),
-          password: passwordInput.trim(),
+          username: regUsername.trim(),
+          password: regPassword.trim(),
           role: targetRole,
+          userCategory,
+          idProofType,
+          idProofNumber: idProofNumber.trim(),
+          orgProof: orgProofData,
+          autoVerify: true,
         });
 
         if (res.success) {
+          setSuccessInfo({
+            did: res.did,
+            username: res.username,
+            role: res.role,
+            verified: res.verified,
+            message: res.message,
+          });
+          // Switch to sign in pre-filled with newly generated DID
+          setIdentityInput(res.did);
+          setPasswordInput(regPassword);
           setMode('login');
-          setErrorMsg(`✅ Registration request submitted for '${res.username}'! Access is locked until Admin approves your request and issues your DID (${res.did}).`);
         }
+      } catch (err) {
+        setErrorMsg(err.message || 'Registration failed. Please check submitted proofs.');
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setErrorMsg(err.message || 'Authentication failed. Please check credentials.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -90,15 +174,15 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           {/* Header Row */}
           <div className="modal-header-row">
             <div className="modal-title-group">
-              <span className="modal-kicker-tag">BLOCKSHIELD FABRIC AUTHENTICATION</span>
+              <span className="modal-kicker-tag">BLOCKSHIELD ENTERPRISE IDENTITY &amp; ACCESS</span>
               <h2 className="auth-modal-title">
                 <span className="role-icon-inline">{roleIcons[targetRole] || '🔐'}</span>
-                {mode === 'login' ? `${targetRole} Portal Access` : `Register New ${targetRole} Account`}
+                {mode === 'login' ? `${targetRole} Workspace Access` : `Create Verified ${targetRole} Account`}
               </h2>
               <p className="modal-intro">
                 {mode === 'login'
-                  ? `Enter credentials to access the ${targetRole} workspace.`
-                  : `Create a ${targetRole} account to access digital assets & operations.`}
+                  ? `Enter registered credentials to access the ${targetRole} workspace.`
+                  : `Select your organization category and provide proofs to generate your DID.`}
               </p>
             </div>
             {onClose && (
@@ -118,28 +202,36 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             <button
               type="button"
               className={`segmented-tab ${mode === 'login' ? 'active' : ''}`}
-              onClick={() => { setMode('login'); setErrorMsg(''); }}
+              onClick={() => { setMode('login'); setErrorMsg(''); setSuccessInfo(null); }}
             >
               Sign In
             </button>
             <button
               type="button"
               className={`segmented-tab ${mode === 'register' ? 'active' : ''}`}
-              onClick={() => { setMode('register'); setErrorMsg(''); }}
+              onClick={() => { setMode('register'); setErrorMsg(''); setSuccessInfo(null); }}
             >
               Create Account
             </button>
           </div>
 
+          {/* Success Banner */}
+          {successInfo && (
+            <div className="registration-workflow-badge" role="status">
+              <span>✓ {successInfo.message}</span>
+            </div>
+          )}
+
+          {/* Error Alert */}
           {errorMsg && (
             <div className="form-error-alert" role="alert">
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* Form Fields */}
-          <div className="form-layout">
-            {mode === 'login' && (
+          {/* MODE 1: LOGIN */}
+          {mode === 'login' && (
+            <div className="form-layout">
               <div className="auth-demo-picker-box">
                 <span className="auth-demo-picker-label">⚡ 1-Click Demo Accounts:</span>
                 <div className="auth-demo-picker-chips">
@@ -152,6 +244,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                         setIdentityInput(u.username);
                         setPasswordInput(u.password);
                         setErrorMsg('');
+                        setSuccessInfo(null);
                       }}
                       title={`${u.displayName} (${u.title})`}
                     >
@@ -161,94 +254,375 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                   ))}
                 </div>
               </div>
-            )}
 
-            <div className="form-group">
-              <label className="label">
-                {mode === 'login' ? 'DID or Username:' : 'Choose Username / DID:'}
-              </label>
-              <div className="input-with-icon">
-                <span className="input-field-icon">👤</span>
-                <input
-                  type="text"
-                  className="input input-has-icon"
-                  value={identityInput}
-                  onChange={(e) => setIdentityInput(e.target.value)}
-                  placeholder={mode === 'login' ? `e.g. ${targetRole}001 or did:sih26125:${targetRole}001` : 'e.g. rajesh_kumar'}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="label">Password:</label>
-              <div className="input-with-icon">
-                <span className="input-field-icon">🔒</span>
-                <input
-                  type="password"
-                  className="input input-has-icon"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="••••••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            {mode === 'register' && (
               <div className="form-group">
-                <label className="label">Verification Document (Optional):</label>
-                <label className="upload-control">
-                  <span className="upload-icon">↑</span>
-                  <span>
-                    <strong>{docFile ? docFile.name : 'Choose a PDF or image'}</strong>
-                    <small>PDF, JPG, or PNG · up to 10 MB</small>
-                  </span>
+                <label className="label">DID or Username:</label>
+                <div className="input-with-icon">
+                  <span className="input-field-icon">👤</span>
                   <input
-                    id="auth-document"
-                    name="document"
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png"
-                    onChange={handleFileChange}
-                    onClick={(e) => e.stopPropagation()}
+                    type="text"
+                    className="input input-has-icon"
+                    value={identityInput}
+                    onChange={(e) => setIdentityInput(e.target.value)}
+                    placeholder={`e.g. ${targetRole}001 or did:sih26125:${targetRole}001`}
+                    required
                   />
-                </label>
+                </div>
               </div>
-            )}
 
-            <button type="submit" className="btn btn-primary btn-block btn-lg mt-2" disabled={loading}>
-              <span>
-                {loading
-                  ? 'Authenticating...'
-                  : mode === 'login'
-                  ? `Log In to ${targetRole} Workspace`
-                  : 'Create Account & Proceed'}
-              </span>
-              <span className="btn-arrow-right">→</span>
-            </button>
-          </div>
+              <div className="form-group">
+                <label className="label">Password:</label>
+                <div className="input-with-icon">
+                  <span className="input-field-icon">🔒</span>
+                  <input
+                    type="password"
+                    className="input input-has-icon"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="••••••••••••"
+                    required
+                  />
+                </div>
+              </div>
 
+              <button type="submit" className="btn btn-primary btn-block btn-lg mt-2" disabled={loading}>
+                <span>
+                  {loading ? 'Authenticating on Fabric...' : `Log In to ${targetRole} Workspace`}
+                </span>
+                <span className="btn-arrow-right">→</span>
+              </button>
+            </div>
+          )}
+
+          {/* MODE 2: MULTI-CATEGORY REGISTRATION */}
+          {mode === 'register' && (
+            <div className="form-layout">
+              {/* STEP 1: USER TYPE SELECTION */}
+              <div className="user-type-selector">
+                <label className="label">1. Select User Category / Affiliation:</label>
+                <div className="user-type-grid">
+                  <button
+                    type="button"
+                    className={`user-type-card ${userCategory === 'DEFENCE' ? 'active' : ''}`}
+                    onClick={() => handleSelectCategory('DEFENCE')}
+                  >
+                    <div className="user-type-icon">🛡️</div>
+                    <div className="user-type-title">Defence / Government</div>
+                    <div className="user-type-desc">BEL, Ministry of Defence, Armed Forces &amp; PSUs</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`user-type-card ${userCategory === 'SOFTWARE' ? 'active' : ''}`}
+                    onClick={() => handleSelectCategory('SOFTWARE')}
+                  >
+                    <div className="user-type-icon">💻</div>
+                    <div className="user-type-title">Software / Tech</div>
+                    <div className="user-type-desc">Defense engineering contractors &amp; tech partners</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`user-type-card ${userCategory === 'NON_DEFENCE' ? 'active' : ''}`}
+                    onClick={() => handleSelectCategory('NON_DEFENCE')}
+                  >
+                    <div className="user-type-icon">👤</div>
+                    <div className="user-type-title">Non-Defence</div>
+                    <div className="user-type-desc">Civilian, academic researchers &amp; general users</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* STEP 2: IDENTITY PROOF */}
+              <div className="form-section-box">
+                <div className="form-section-header">
+                  <span className="section-step-num">2</span>
+                  <div>
+                    <h4 className="section-step-title">Identity Proof</h4>
+                    <p className="section-step-subtitle">
+                      {userCategory === 'DEFENCE'
+                        ? 'Government ID or Passport required for official service personnel.'
+                        : userCategory === 'SOFTWARE'
+                        ? 'Aadhaar, Passport, or Driving Licence for tech contractors.'
+                        : 'Aadhaar, Passport, Driving Licence, or Voter ID.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="form-row-2col">
+                  <div className="form-group">
+                    <label className="label">Identity Proof Document Type:</label>
+                    <select
+                      className="input"
+                      value={idProofType}
+                      onChange={(e) => setIdProofType(e.target.value)}
+                    >
+                      {userCategory === 'DEFENCE' && (
+                        <>
+                          <option value="GOVERNMENT_ID">Government ID Card</option>
+                          <option value="OFFICIAL_PASSPORT">Official / Diplomatic Passport</option>
+                          <option value="REGULAR_PASSPORT">Regular Passport</option>
+                        </>
+                      )}
+                      {userCategory === 'SOFTWARE' && (
+                        <>
+                          <option value="AADHAAR">Aadhaar Card</option>
+                          <option value="PASSPORT">Passport</option>
+                          <option value="DRIVING_LICENCE">Driving Licence</option>
+                        </>
+                      )}
+                      {userCategory === 'NON_DEFENCE' && (
+                        <>
+                          <option value="AADHAAR">Aadhaar Card</option>
+                          <option value="PASSPORT">Passport</option>
+                          <option value="DRIVING_LICENCE">Driving Licence</option>
+                          <option value="VOTER_ID">Voter ID Card</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="label">Identity Proof Number *:</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder={
+                        idProofType === 'AADHAAR' ? 'e.g. 5421 9876 1234'
+                        : idProofType.includes('PASSPORT') ? 'e.g. Z1234567'
+                        : idProofType === 'GOVERNMENT_ID' ? 'e.g. GOV-IND-90214'
+                        : idProofType === 'DRIVING_LICENCE' ? 'e.g. DL-0420110023456'
+                        : 'e.g. VTR-994827'
+                      }
+                      value={idProofNumber}
+                      onChange={(e) => setIdProofNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* STEP 3: ORGANIZATION PROOF & VERIFICATION */}
+              <div className="form-section-box">
+                <div className="form-section-header">
+                  <span className="section-step-num">3</span>
+                  <div>
+                    <h4 className="section-step-title">Organization Proof &amp; Verification</h4>
+                    <p className="section-step-subtitle">
+                      {userCategory === 'DEFENCE'
+                        ? 'Mandatory service credentials and unit verification for BEL-style governance.'
+                        : userCategory === 'SOFTWARE'
+                        ? 'Company employee verification and work authorization.'
+                        : 'Optional organizational affiliation.'}
+                    </p>
+                  </div>
+                </div>
+
+                {userCategory === 'DEFENCE' && (
+                  <div className="form-grid-fields">
+                    <div className="form-row-2col">
+                      <div className="form-group">
+                        <label className="label">Official Service / Employee ID *:</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. BEL-SRV-9042 or AR-77120"
+                          value={serviceId}
+                          onChange={(e) => setServiceId(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Department / Unit / Command *:</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. BEL Radar Systems"
+                          value={department}
+                          onChange={(e) => setDepartment(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Organization Verification Code / Token *:</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g. BEL-SEC-2026"
+                        value={orgAuthCode}
+                        onChange={(e) => setOrgAuthCode(e.target.value)}
+                        required
+                      />
+                      <small className="field-hint">
+                        Instant demo verification token: <code>BEL-SEC-2026</code>
+                      </small>
+                    </div>
+                  </div>
+                )}
+
+                {userCategory === 'SOFTWARE' && (
+                  <div className="form-grid-fields">
+                    <div className="form-row-2col">
+                      <div className="form-group">
+                        <label className="label">Employee ID *:</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. TECH-EMP-4091"
+                          value={employeeId}
+                          onChange={(e) => setEmployeeId(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Official Company Email *:</label>
+                        <input
+                          type="email"
+                          className="input"
+                          placeholder="e.g. engineer@techpartner.com"
+                          value={companyEmail}
+                          onChange={(e) => setCompanyEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Organization Authorization Code *:</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="e.g. TECH-AUTH-2026"
+                        value={orgAuthCode}
+                        onChange={(e) => setOrgAuthCode(e.target.value)}
+                        required
+                      />
+                      <small className="field-hint">
+                        Instant demo verification token: <code>TECH-AUTH-2026</code>
+                      </small>
+                    </div>
+                  </div>
+                )}
+
+                {userCategory === 'NON_DEFENCE' && (
+                  <div className="form-grid-fields">
+                    <div className="form-row-2col">
+                      <div className="form-group">
+                        <label className="label">Affiliation / Organization Name (Optional):</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. IIT Madras or Independent"
+                          value={orgName}
+                          onChange={(e) => setOrgName(e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Organization ID / Roll (Optional):</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="e.g. AFFIL-2026-99"
+                          value={orgIdOptional}
+                          onChange={(e) => setOrgIdOptional(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* STEP 4: ACCOUNT CREDENTIALS & DID SETUP */}
+              <div className="form-section-box">
+                <div className="form-section-header">
+                  <span className="section-step-num">4</span>
+                  <div>
+                    <h4 className="section-step-title">Account Credentials &amp; DID Setup</h4>
+                    <p className="section-step-subtitle">Your Decentralized Identifier (DID) will be issued upon verification.</p>
+                  </div>
+                </div>
+
+                <div className="form-row-2col">
+                  <div className="form-group">
+                    <label className="label">Desired Username / Handle *:</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. rahul_sharma"
+                      value={regUsername}
+                      onChange={(e) => setRegUsername(e.target.value)}
+                      required
+                    />
+                    <small className="field-hint">
+                      Generated DID: <code>did:sih26125:{regUsername || 'username'}</code>
+                    </small>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="label">Password *:</label>
+                    <input
+                      type="password"
+                      className="input"
+                      placeholder="••••••••••••"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group mt-2">
+                  <label className="label">Document Scan Proof (Optional):</label>
+                  <label className="upload-control">
+                    <span className="upload-icon">↑</span>
+                    <span>
+                      <strong>{docFile ? docFile.name : 'Upload Identity or Organization proof scan'}</strong>
+                      <small>PDF, JPG, or PNG · up to 10 MB</small>
+                    </span>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/jpeg,image/png"
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary btn-block btn-lg mt-2" disabled={loading}>
+                <span>
+                  {loading
+                    ? 'Verifying Organization & Creating DID on Fabric...'
+                    : `Verify Proofs & Create ${targetRole} DID Account`}
+                </span>
+                <span className="btn-arrow-right">→</span>
+              </button>
+            </div>
+          )}
+
+          {/* Bottom Toggle Row */}
           <div className="auth-toggle-row">
             {mode === 'login' ? (
               <p className="auth-toggle-text">
-                Don't have a registered account yet?{' '}
+                Need a new verifiable identity?{' '}
                 <button
                   type="button"
                   className="btn-link-action"
-                  onClick={() => { setMode('register'); setErrorMsg(''); }}
+                  onClick={() => { setMode('register'); setErrorMsg(''); setSuccessInfo(null); }}
                 >
-                  Sign Up / Register
+                  Create Verified Account
                 </button>
               </p>
             ) : (
               <p className="auth-toggle-text">
-                Already have an account?{' '}
+                Already registered?{' '}
                 <button
                   type="button"
                   className="btn-link-action"
-                  onClick={() => { setMode('login'); setErrorMsg(''); }}
+                  onClick={() => { setMode('login'); setErrorMsg(''); setSuccessInfo(null); }}
                 >
-                  Log In
+                  Return to Sign In
                 </button>
               </p>
             )}

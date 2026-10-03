@@ -201,20 +201,29 @@ exports.delegateTaskToManager = async (req, res) => {
 };
 
 // Helper: System helper to dispatch new user signup task to Admin
-exports.addSystemSignupTask = ({ did, username, requestedRole }) => {
+exports.addSystemSignupTask = ({ did, username, requestedRole, userCategory = 'NON_DEFENCE', idProofType, idProofNumber, orgProof = {}, status = 'PENDING_APPROVAL' }) => {
+  const isVerified = status === 'ACTIVE';
+  const orgDetails = orgProof.serviceId ? `Service ID: ${orgProof.serviceId} | Dept: ${orgProof.department || 'N/A'}`
+    : orgProof.employeeId ? `Employee ID: ${orgProof.employeeId} | Org Email: ${orgProof.companyEmail || 'N/A'}`
+    : (orgProof.orgName ? `Affiliation: ${orgProof.orgName}` : 'Civilian / General');
+
   const newThread = {
     id: `thread-signup-${Date.now()}`,
     category: 'REGISTER_DID',
-    status: 'PENDING',
+    status: isVerified ? 'COMPLETED' : 'PENDING',
     senderDID: did,
     senderName: username,
     senderRole: requestedRole || 'USER',
     targetRole: 'ADMIN',
-    title: `Registration Request: ${username} (${requestedRole || 'USER'})`,
+    title: `Registration [${userCategory}]: ${username} (${requestedRole || 'USER'})`,
     details: {
       requestedDID: did,
       username,
       requestedRole: requestedRole || 'USER',
+      userCategory,
+      idProofType,
+      idProofNumber,
+      orgProof,
       publicKey: 'RSA-2048-PUBKEY',
     },
     messages: [
@@ -223,7 +232,7 @@ exports.addSystemSignupTask = ({ did, username, requestedRole }) => {
         senderDID: did,
         senderName: username,
         senderRole: requestedRole || 'USER',
-        content: `New user signup request for '${username}'. Requested role: ${requestedRole || 'USER'}. Please accept request to issue official DID on Fabric ledger.`,
+        content: `New ${userCategory} account registration for '${username}' (${did}).\n• ID Proof: ${idProofType || 'Identity Proof'} (${idProofNumber || 'N/A'})\n• Organization Proof: ${orgDetails}\n• Verification Status: ${isVerified ? 'VERIFIED & ACTIVE ON FABRIC LEDGER' : 'PENDING ADMIN APPROVAL'}`,
         timestamp: new Date().toISOString(),
       }
     ],

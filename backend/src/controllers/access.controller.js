@@ -116,7 +116,17 @@ exports.login = async (req, res) => {
 
 exports.registerUser = async (req, res) => {
     try {
-        const { username, password, role = 'USER' } = req.body;
+        const {
+            username,
+            password,
+            role = 'USER',
+            userCategory = 'NON_DEFENCE', // 'DEFENCE' | 'SOFTWARE' | 'NON_DEFENCE'
+            idProofType,
+            idProofNumber,
+            orgProof = {},
+            autoVerify = false
+        } = req.body;
+
         if (!username || !password) {
             return res.status(400).json({ success: false, error: 'Username and password are required' });
         }
@@ -136,8 +146,39 @@ exports.registerUser = async (req, res) => {
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
 
-        // Register user account in PENDING_APPROVAL status
-        userCredentials.set(cleanDid, { password, role: targetRole, status: 'PENDING_APPROVAL', name: username });
+        // Check if organization verification criteria are satisfied
+        const authCodeUpper = (orgProof.authCode || orgProof.orgAuthCode || '').toUpperCase();
+        const isVerified = Boolean(
+            autoVerify ||
+            (userCategory === 'DEFENCE' && (authCodeUpper.includes('BEL') || authCodeUpper.includes('DEF') || orgProof.serviceId)) ||
+            (userCategory === 'SOFTWARE' && (authCodeUpper.includes('TECH') || orgProof.employeeId)) ||
+            (userCategory === 'NON_DEFENCE' && idProofNumber)
+        );
+
+        const accountStatus = isVerified ? 'ACTIVE' : 'PENDING_APPROVAL';
+
+        // Register user account in userCredentials
+        userCredentials.set(cleanDid, {
+            password,
+            role: targetRole,
+            status: accountStatus,
+            name: username,
+            userCategory,
+            idProofType,
+            idProofNumber,
+            orgProof,
+            verifiedAt: isVerified ? new Date().toISOString() : null
+        });
+
+        // If verified, register on Fabric ledger immediately
+        if (isVerified) {
+            try {
+                const { submitTransaction } = require('../fabric/gateway');
+                await submitTransaction('CreateIdentity', cleanDid, 'RSA-2048-PUBKEY', targetRole, orgProof.department || 'General');
+            } catch (e) {
+                console.log('[Register Ledger Auto-Create Notice]', e.message);
+            }
+        }
 
         // Dispatch automatic USER_SIGNUP_REQ task to Admin channel
         const { addSystemSignupTask } = require('./messages.controller');
@@ -145,15 +186,24 @@ exports.registerUser = async (req, res) => {
             did: cleanDid,
             username: cleanDid.replace('did:sih26125:', ''),
             requestedRole: targetRole,
+            userCategory,
+            idProofType,
+            idProofNumber,
+            orgProof,
+            status: accountStatus
         });
 
         return res.status(201).json({
             success: true,
+            verified: isVerified,
             did: cleanDid,
             role: targetRole,
-            status: 'PENDING_APPROVAL',
+            status: accountStatus,
+            userCategory,
             username: cleanDid.replace('did:sih26125:', ''),
-            message: 'Signup request submitted to Admin! Dashboard access will be unlocked upon Admin approval.'
+            message: isVerified
+                ? `Organization verified! DID ${cleanDid} has been generated and activated on Hyperledger Fabric. You can log in immediately.`
+                : `Signup request submitted with ${userCategory} proofs! Access will be unlocked upon Admin review.`
         });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });

@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #18344b;
+  background: #f5f8fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+
+  --ink: #17344b;
+  --muted: #62788a;
+  --blue: #087fc1;
+  --cyan: #12a7d7;
+  --line: #dce5eb;
+  --paper: #fbfcfd;
+  --green: #277b65;
+  --orange: #c26a41;
+  --mono: 'IBM Plex Mono', monospace;
+
+  /* Role specific colors */
+  --role-admin: #7c3aed;
+  --role-manager: #10b981;
+  --role-auditor: #06b6d4;
+  --role-user: #087fc1;
+
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}

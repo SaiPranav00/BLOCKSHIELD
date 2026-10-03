@@ -1,0 +1,129 @@
+/* ==============================================================================
+   MANAGER WORKSPACE SPECIFIC EXTENSIONS
+   Matches the Manager Asset Operations Reference Mockup
+   ============================================================================== */
+
+.metric-tag-badge.badge-attention {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+/* Manager Attention Banner */
+.manager-attention-banner {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.manager-attention-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.manager-attention-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.manager-attention-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.manager-attention-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.manager-attention-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.manager-attention-pill {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.manager-attention-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.manager-attention-detail-row strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.manager-attention-detail-row code {
+  color: #0f172a;
+  font-weight: 700;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.manager-btn-review {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  border-radius: 10px;
+  padding: 0.7rem 1.4rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.18s ease;
+}
+
+.manager-btn-review:hover {
+  background: #1e40af;
+  border-color: #1e40af;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+}
+
+.manager-btn-review-arrow {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .manager-attention-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .manager-btn-review {
+    width: 100%;
+    justify-content: center;
+  }
+}
