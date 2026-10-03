@@ -5,9 +5,9 @@ export default function AdminLanding({ metrics, systemStatus, authUser, onEnterD
   const [greeting, setGreeting] = useState('');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
   
-  // Inline auth state
-  const [identityInput, setIdentityInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
+  // Inline auth state pre-filled with demo credentials
+  const [identityInput, setIdentityInput] = useState('ADMIN001');
+  const [passwordInput, setPasswordInput] = useState('password123');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 

@@ -171,11 +171,10 @@ function App() {
       {/* Global Header Bar (Shown when inside a workspace or dedicated page) */}
       {currentView !== 'PORTAL' && (
         <Header
-          systemStatus={systemStatus}
           activeRole={activeRole}
+          activeDID={activeDID}
           currentView={currentView}
           onReturnHome={handleReturnHome}
-          onSelectRole={handleSelectRoleFromPortal}
           onOpenCommChannel={() => setShowCommChannel(true)}
           authUser={authUser}
           onLogout={handleLogout}

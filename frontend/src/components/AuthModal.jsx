@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { loginUser, registerUserAcc } from '../services/api';
+import { DEMO_USERS } from '../constants/demoUsers';
 
 export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
+  const targetRole = role || 'USER';
+  const defaultDemo = DEMO_USERS.find(u => u.role === targetRole) || DEMO_USERS[0];
+
   const [mode, setMode] = useState('login'); // 'login' or 'register'
-  const [identityInput, setIdentityInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
+  const [identityInput, setIdentityInput] = useState(defaultDemo.username);
+  const [passwordInput, setPasswordInput] = useState(defaultDemo.password);
   const [docFile, setDocFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  const targetRole = role || 'USER';
 
   const roleIcons = {
     ADMIN: '🛡️',
@@ -137,6 +139,30 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
 
           {/* Form Fields */}
           <div className="form-layout">
+            {mode === 'login' && (
+              <div className="auth-demo-picker-box">
+                <span className="auth-demo-picker-label">⚡ 1-Click Demo Accounts:</span>
+                <div className="auth-demo-picker-chips">
+                  {DEMO_USERS.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      className={`btn-demo-chip ${u.username === identityInput ? 'active' : ''}`}
+                      onClick={() => {
+                        setIdentityInput(u.username);
+                        setPasswordInput(u.password);
+                        setErrorMsg('');
+                      }}
+                      title={`${u.displayName} (${u.title})`}
+                    >
+                      <span className="demo-chip-role-tag">{u.role}</span>
+                      <span className="demo-chip-user">{u.username}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="label">
                 {mode === 'login' ? 'DID or Username:' : 'Choose Username / DID:'}

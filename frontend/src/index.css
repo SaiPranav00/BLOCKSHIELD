@@ -77,49 +77,37 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  background: rgba(251, 252, 253, 0.92);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 10px 30px rgba(23, 52, 75, 0.06);
+  padding: 0.75rem 2rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-}
-
-.btn-home-back {
-  background: #087fc1;
-  border: none;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.18s ease, transform 0.18s ease;
-}
-
-.btn-home-back:hover {
-  background: #056aa4;
-  transform: translateX(-2px);
+  gap: 1rem;
 }
 
 .brand-logo-lockup {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.75rem;
+  transition: opacity 0.15s ease;
+}
+
+.brand-logo-lockup:hover {
+  opacity: 0.85;
 }
 
 .brand-logo-img {
-  width: 130px;
-  height: 52px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
-  mix-blend-mode: multiply;
 }
 
 .brand-text-wrapper {
@@ -128,82 +116,94 @@ a {
 }
 
 .brand-title {
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #14354f;
-  letter-spacing: -0.3px;
-  line-height: 1.1;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .brand-subtitle {
-  font-size: 0.78rem;
-  color: var(--muted);
-  font-family: var(--mono);
-}
-
-/* Quick Header Role Navigation Bar */
-.header-role-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #f1f5f9;
-  padding: 0.25rem;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  margin-left: 1rem;
-}
-
-.nav-role-btn {
-  background: transparent;
-  border: none;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #475569;
-  padding: 0.4rem 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.nav-role-btn:hover {
-  background: rgba(255, 255, 255, 0.9);
-  color: #0f172a;
-}
-
-.nav-role-btn.active {
-  background: #fff;
-  color: #087fc1;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.nav-role-btn.active.nav-admin {
-  color: #7c3aed;
-}
-
-.nav-role-btn.active.nav-manager {
-  color: #059669;
-}
-
-.nav-role-btn.active.nav-auditor {
-  color: #0891b2;
-}
-
-.nav-role-btn.active.nav-user {
-  color: #2563eb;
-}
-
-@media (max-width: 1024px) {
-  .header-role-nav { display: none; }
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
+}
+
+/* Clean Header User Chip */
+.header-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.38rem 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.header-user-name {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.header-role-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.role-badge-admin {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.role-badge-manager {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.role-badge-auditor {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.role-badge-user {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Clean Sign Out Button */
+.btn-header-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-header-signout:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 
 /* Network Status Indicator */
@@ -261,20 +261,20 @@ a {
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.9rem;
-  background: #fff;
-  border: 1px solid #cddce5;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
-  color: #32647f;
+  color: #0f172a;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.15s ease;
 }
 
 .btn-comm-hub:hover {
-  border-color: #087fc1;
-  color: #087fc1;
-  background: #eef7fc;
+  border-color: #cbd5e1;
+  color: #2563eb;
+  background: #f8fafc;
 }
 
 .badge-unread-count {
@@ -3887,4 +3887,75 @@ code {
   background: #f8fafc;
   border-color: #cbd5e1;
   color: #1d4ed8;
+}
+
+/* Auth Modal Demo User Quick Picker */
+.auth-demo-picker-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.auth-demo-picker-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.45rem;
+}
+
+.auth-demo-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.btn-demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-demo-chip:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.btn-demo-chip.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.demo-chip-role-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.btn-demo-chip.active .demo-chip-role-tag {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.demo-chip-user {
+  font-family: var(--font-mono, monospace);
 }

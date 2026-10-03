@@ -39,11 +39,17 @@ exports.checkAccess = async (req, res) => {
 
 // Simple User & Role Credential Store (Single System Admin: did:sih26125:ADMIN001)
 const userCredentials = new Map([
-    ['did:sih26125:ADMIN001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Admin System Account' }],
-    ['did:sih26125:MANAGER001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Manager System Account' }],
-    ['did:sih26125:AUDITOR001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Auditor System Account' }],
-    ['did:sih26125:USER001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Standard User Account' }],
-    ['did:sih26125:CITIZEN_KUMAR', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Standard User Account' }],
+    ['did:sih26125:ADMIN001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Marcus Chen' }],
+    ['did:sih26125:ADMIN-001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Marcus Chen' }],
+    ['did:sih26125:MANAGER001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
+    ['did:sih26125:MANAGER-001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
+    ['did:sih26125:MANAGER-002', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
+    ['did:sih26125:AUDITOR001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Priya Nair' }],
+    ['did:sih26125:AUDITOR-001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Priya Nair' }],
+    ['did:sih26125:USER001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
+    ['did:sih26125:USER-001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
+    ['did:sih26125:USER-014', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
+    ['did:sih26125:CITIZEN_KUMAR', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Rajesh Kumar' }],
 ]);
 
 exports.getUserCredentials = () => userCredentials;
