@@ -219,6 +219,7 @@ function App() {
             onViewProvenance={handleOpenProvenance}
             onMetricsUpdate={handleMetricsUpdate}
             onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
 
@@ -228,6 +229,8 @@ function App() {
             activeDID={activeDID}
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
+            onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
 
@@ -236,6 +239,8 @@ function App() {
           <AuditorView
             notify={showToast}
             onViewProvenance={handleOpenProvenance}
+            onLogout={handleLogout}
+            authUser={authUser}
           />
         )}
 
