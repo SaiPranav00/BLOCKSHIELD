@@ -348,13 +348,11 @@ export default function ManagerView({
             </div>
 
             <div className="metric-number-big">
-              {pendingRequests.length > 0 ? pendingRequests.length : 7}
+              {pendingRequests.length}
             </div>
             <div className="metric-title-text">Pending requests</div>
             <div className="metric-sub-text">
-              {pendingRequests.length > 0
-                ? `${pendingRequests.length} awaiting authorization`
-                : '2 received in the last hour'}
+              {pendingRequests.length} awaiting authorization
             </div>
           </div>
 
@@ -376,13 +374,11 @@ export default function ManagerView({
             </div>
 
             <div className="metric-number-big">
-              {nftsList.length > 0 ? nftsList.length : 46}
+              {nftsList.length}
             </div>
             <div className="metric-title-text">Managed assets</div>
             <div className="metric-sub-text">
-              {nftsList.length > 0
-                ? `${nftsList.filter(n => !!n.ownerDID).length} currently allocated`
-                : '38 currently allocated'}
+              {nftsList.filter(n => !!n.ownerDID).length} currently allocated
             </div>
           </div>
 
@@ -405,10 +401,10 @@ export default function ManagerView({
             </div>
 
             <div className="metric-number-big">
-              {didsList.length > 0 ? didsList.length : 128}
+              {didsList.length}
             </div>
             <div className="metric-title-text">People</div>
-            <div className="metric-sub-text">Across 6 operating teams</div>
+            <div className="metric-sub-text">Verified personnel records</div>
           </div>
         </div>
 
@@ -446,18 +442,10 @@ export default function ManagerView({
                           <span>&rarr;</span>
                           <code>{topPendingReq.toDID}</code>
                           <span>•</span>
-                          <span>Requested recently</span>
+                          <span>{topPendingReq.reason || 'Pending approval'}</span>
                         </>
                       ) : (
-                        <>
-                          <strong>AST-184</strong>
-                          <span>From</span>
-                          <strong>USER001</strong>
-                          <span>&rarr;</span>
-                          <strong>USER014</strong>
-                          <span>•</span>
-                          <span>🕒 Requested 15 min ago</span>
-                        </>
+                        <span>All department transfer requests are currently authorized.</span>
                       )}
                     </div>
                   </div>
@@ -558,73 +546,32 @@ export default function ManagerView({
                   </div>
 
                   <div className="admin-activity-col">
-                    {/* Row 1: Asset allocated to USER027 (Teal check) */}
-                    <div className="admin-activity-row">
-                      <div className="admin-activity-left">
-                        <div className="admin-activity-circle circle-teal">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
+                    {nftsList && nftsList.length > 0 ? (
+                      nftsList.slice(0, 3).map((item, idx) => (
+                        <div key={item.tokenId || idx} className="admin-activity-row">
+                          <div className="admin-activity-left">
+                            <div className="admin-activity-circle circle-teal">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            </div>
+                            <div className="admin-activity-content">
+                              <span className="admin-activity-title">
+                                {item.assetName || item.tokenId} ({item.assetType || 'ASSET'})
+                              </span>
+                              <span className="admin-activity-subtext">
+                                Custodian: {item.custodian || item.ownerDID || 'Unassigned'} · Dept: {item.department || 'R&D'}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="admin-activity-time">{item.status || 'ACTIVE'}</span>
                         </div>
-                        <div className="admin-activity-content">
-                          <span className="admin-activity-title">
-                            Asset allocated to USER027
-                          </span>
-                          <span className="admin-activity-subtext">
-                            AST-888 · Field Operations
-                          </span>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-sm text-muted">
+                        No recent department asset activity recorded.
                       </div>
-                      <span className="admin-activity-time">5 min ago</span>
-                    </div>
-
-                    {/* Row 2: Transfer approved for USER009 (Indigo 4-way arrow) */}
-                    <div className="admin-activity-row">
-                      <div className="admin-activity-left">
-                        <div className="admin-activity-circle circle-indigo">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="16 3 21 3 21 8"/>
-                            <line x1="4" y1="20" x2="21" y2="3"/>
-                            <polyline points="21 16 21 21 16 21"/>
-                            <line x1="15" y1="15" x2="21" y2="21"/>
-                            <polyline points="4 8 4 3 9 3"/>
-                            <line x1="9" y1="9" x2="4" y2="3"/>
-                          </svg>
-                        </div>
-                        <div className="admin-activity-content">
-                          <span className="admin-activity-title">
-                            Transfer approved for USER009
-                          </span>
-                          <span className="admin-activity-subtext">
-                            AST-876 · Customer Success
-                          </span>
-                        </div>
-                      </div>
-                      <span className="admin-activity-time">12 min ago</span>
-                    </div>
-
-                    {/* Row 3: Personnel record synchronized (Blue people) */}
-                    <div className="admin-activity-row">
-                      <div className="admin-activity-left">
-                        <div className="admin-activity-circle circle-blue">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                          </svg>
-                        </div>
-                        <div className="admin-activity-content">
-                          <span className="admin-activity-title">
-                            Personnel record synchronized
-                          </span>
-                          <span className="admin-activity-subtext">
-                            USER041 · Facilities team
-                          </span>
-                        </div>
-                      </div>
-                      <span className="admin-activity-time">28 min ago</span>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

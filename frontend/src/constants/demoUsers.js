@@ -1,8 +1,8 @@
 // Centralized Demo User Accounts for BlockShield Presentations & Testing
 export const DEMO_USERS = [
   {
-    id: 'ADMIN-001',
-    username: 'ADMIN-001',
+    id: 'ADMIN001',
+    username: 'ADMIN001',
     displayName: 'Marcus Chen',
     role: 'ADMIN',
     did: 'did:sih26125:ADMIN001',
@@ -14,8 +14,8 @@ export const DEMO_USERS = [
     accentColor: '#7c3aed',
   },
   {
-    id: 'MANAGER-002',
-    username: 'MANAGER-002',
+    id: 'MANAGER001',
+    username: 'MANAGER001',
     displayName: 'Elena Vance',
     role: 'MANAGER',
     did: 'did:sih26125:MANAGER001',
@@ -27,8 +27,8 @@ export const DEMO_USERS = [
     accentColor: '#059669',
   },
   {
-    id: 'AUDITOR-001',
-    username: 'AUDITOR-001',
+    id: 'AUDITOR001',
+    username: 'AUDITOR001',
     displayName: 'Priya Nair',
     role: 'AUDITOR',
     did: 'did:sih26125:AUDITOR001',
@@ -40,8 +40,8 @@ export const DEMO_USERS = [
     accentColor: '#0891b2',
   },
   {
-    id: 'USER-014',
-    username: 'USER-014',
+    id: 'USER001',
+    username: 'USER001',
     displayName: 'Jordan Lee',
     role: 'USER',
     did: 'did:sih26125:USER001',
@@ -52,6 +52,19 @@ export const DEMO_USERS = [
     badge: 'Personal Account',
     accentColor: '#2563eb',
   },
+  {
+    id: 'N123456',
+    username: 'N123456',
+    displayName: 'Aarav Patel',
+    role: 'USER',
+    did: 'did:sih26125:N123456',
+    password: 'password123',
+    department: 'Software / Technology',
+    title: 'Technical Specialist',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+    badge: 'Technology Unit',
+    accentColor: '#0284c7',
+  },
 ];
 
 export const getDemoUserByRole = (role) => {
@@ -61,6 +74,6 @@ export const getDemoUserByRole = (role) => {
 
 export const getDemoUserById = (id) => {
   if (!id) return DEMO_USERS[0];
-  const cleanId = id.toUpperCase();
-  return DEMO_USERS.find(u => u.id === cleanId || u.username === cleanId || u.did.toUpperCase().includes(cleanId)) || DEMO_USERS[0];
+  const cleanId = id.toUpperCase().replace(/[-\s_]/g, '');
+  return DEMO_USERS.find(u => u.id.replace(/[-\s_]/g, '') === cleanId || u.username.replace(/[-\s_]/g, '') === cleanId || u.did.toUpperCase().includes(cleanId)) || DEMO_USERS[0];
 };

@@ -337,7 +337,7 @@ export default function UserView({
             </div>
 
             <div className="metric-number-big">
-              {myAssets.length > 0 ? myAssets.length : 3}
+              {myAssets.length}
             </div>
             <div className="metric-title-text">Assets</div>
             <div className="metric-sub-text">Assigned to your identity</div>
@@ -360,7 +360,7 @@ export default function UserView({
             </div>
 
             <div className="metric-number-big">
-              {pendingRequestsCount > 0 ? pendingRequestsCount : 1}
+              {myRequests.filter(r => r.status === 'PENDING').length}
             </div>
             <div className="metric-title-text">Pending request</div>
             <div className="metric-sub-text">Awaiting your response</div>
@@ -463,12 +463,12 @@ export default function UserView({
                           </div>
                           <div className="user-asset-info">
                             <div className="user-asset-top-row">
-                              <span className="user-asset-code">{asset.tokenId || 'AST-104'}</span>
+                              <span className="user-asset-code">{asset.tokenId}</span>
                               <span className="user-asset-badge-active">{asset.status || 'Active'}</span>
                             </div>
-                            <span className="user-asset-name">{asset.assetName || asset.name || 'Secure Card'}</span>
+                            <span className="user-asset-name">{asset.assetName || asset.name || asset.tokenType || 'Tokenized Asset'}</span>
                             <span className="user-asset-subtext">
-                              Allocated to {currentDID.split(':').pop() || 'USER001'}
+                              Allocated to {currentDID.split(':').pop()}
                             </span>
                           </div>
                         </div>
@@ -476,7 +476,7 @@ export default function UserView({
                         <button
                           type="button"
                           className="btn-user-view-asset"
-                          onClick={() => onViewProvenance(asset.tokenId || 'AST-104')}
+                          onClick={() => onViewProvenance(asset.tokenId)}
                         >
                           <span>View asset</span>
                           <span>&rarr;</span>
@@ -484,33 +484,13 @@ export default function UserView({
                       </div>
                     ))
                   ) : (
-                    /* Default Mockup Item */
-                    <div className="user-asset-item-box">
-                      <div className="user-asset-item-left">
-                        <div className="user-asset-card-icon">
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="2" y="5" width="20" height="14" rx="2"/>
-                            <line x1="2" y1="10" x2="22" y2="10"/>
-                          </svg>
-                        </div>
-                        <div className="user-asset-info">
-                          <div className="user-asset-top-row">
-                            <span className="user-asset-code">AST-104</span>
-                            <span className="user-asset-badge-active">Active</span>
-                          </div>
-                          <span className="user-asset-name">Secure Card</span>
-                          <span className="user-asset-subtext">Allocated to USER001</span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="btn-user-view-asset"
-                        onClick={() => onViewProvenance('AST-104')}
-                      >
-                        <span>View asset</span>
-                        <span>&rarr;</span>
-                      </button>
+                    <div style={{ padding: '28px', textAlign: 'center', color: '#64748b' }}>
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 8px', opacity: 0.5 }}>
+                        <rect x="2" y="5" width="20" height="14" rx="2"/>
+                        <line x1="2" y1="10" x2="22" y2="10"/>
+                      </svg>
+                      <div style={{ fontWeight: 600, color: '#334155' }}>No Assets Currently Allocated</div>
+                      <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Assets allocated to your DID ({currentDID}) will appear here in real time.</div>
                     </div>
                   )}
                 </div>
@@ -528,38 +508,49 @@ export default function UserView({
                   </div>
 
                   <div className="admin-activity-col">
-                    {/* Item 1: Asset received */}
-                    <div className="admin-activity-row">
-                      <div className="admin-activity-left">
-                        <div className="admin-activity-circle circle-teal">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"/>
-                          </svg>
-                        </div>
-                        <div className="admin-activity-content">
-                          <span className="admin-activity-title">Asset received</span>
-                          <span className="auditor-activity-id">AST-104</span>
-                          <span className="admin-activity-subtext">5 min ago</span>
-                        </div>
+                    {myRequests.length > 0 || myAssets.length > 0 ? (
+                      <>
+                        {myRequests.slice(0, 4).map((req, idx) => (
+                          <div className="admin-activity-row" key={req.requestId || idx}>
+                            <div className="admin-activity-left">
+                              <div className={`admin-activity-circle ${req.status === 'APPROVED' ? 'circle-teal' : req.status === 'REJECTED' ? 'circle-red' : 'circle-blue'}`}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="22" y1="2" x2="11" y2="13"/>
+                                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                                </svg>
+                              </div>
+                              <div className="admin-activity-content">
+                                <span className="admin-activity-title">
+                                  {req.status === 'APPROVED' ? 'Transfer approved' : req.status === 'REJECTED' ? 'Transfer rejected' : 'Transfer requested'}
+                                </span>
+                                <span className="auditor-activity-id">{req.tokenId} &rarr; {(req.targetCustodian || req.toCustodian || '').split(':').pop() || 'Transfer'}</span>
+                                <span className="admin-activity-subtext">{req.status} &bull; {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : 'Just now'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {myAssets.slice(0, 3).map((ast, idx) => (
+                          <div className="admin-activity-row" key={ast.tokenId || idx}>
+                            <div className="admin-activity-left">
+                              <div className="admin-activity-circle circle-teal">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              </div>
+                              <div className="admin-activity-content">
+                                <span className="admin-activity-title">Active Custody</span>
+                                <span className="auditor-activity-id">{ast.tokenId}</span>
+                                <span className="admin-activity-subtext">{ast.name || ast.tokenType || 'Allocated Asset'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
+                        <span style={{ fontSize: '0.85rem' }}>No recent activity records found for this account.</span>
                       </div>
-                    </div>
-
-                    {/* Item 2: Transfer requested */}
-                    <div className="admin-activity-row">
-                      <div className="admin-activity-left">
-                        <div className="admin-activity-circle circle-blue">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13"/>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                          </svg>
-                        </div>
-                        <div className="admin-activity-content">
-                          <span className="admin-activity-title">Transfer requested</span>
-                          <span className="auditor-activity-id">AST-087</span>
-                          <span className="admin-activity-subtext">20 min ago</span>
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -811,50 +802,54 @@ export default function UserView({
               </div>
 
               <div className="admin-activity-col">
-                <div className="admin-activity-row">
-                  <div className="admin-activity-left">
-                    <div className="admin-activity-circle circle-teal">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
+                {myRequests.map((req) => (
+                  <div className="admin-activity-row" key={req.requestId || req.id}>
+                    <div className="admin-activity-left">
+                      <div className={`admin-activity-circle ${req.status === 'APPROVED' ? 'circle-teal' : req.status === 'REJECTED' ? 'circle-red' : 'circle-blue'}`}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13"/>
+                          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                      </div>
+                      <div className="admin-activity-content">
+                        <span className="admin-activity-title">Transfer Request &bull; {req.status}</span>
+                        <span className="auditor-activity-id">{req.tokenId} &rarr; {(req.targetCustodian || req.toCustodian || '').split(':').pop() || 'Target'}</span>
+                        <span className="admin-activity-subtext">{req.reason || 'Custodian delegation'} &bull; {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : 'Active'}</span>
+                      </div>
                     </div>
-                    <div className="admin-activity-content">
-                      <span className="admin-activity-title">Asset allocated to custody</span>
-                      <span className="auditor-activity-id">AST-104 (Secure Card)</span>
-                      <span className="admin-activity-subtext">Approved by Manager · Channel: mychannel</span>
-                    </div>
+                    <button
+                      type="button"
+                      className="btn-inspect-link"
+                      onClick={() => setActiveTab('transfer-requests')}
+                    >
+                      View Status
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-inspect-link"
-                    onClick={() => onViewProvenance('AST-104')}
-                  >
-                    View History
-                  </button>
-                </div>
+                ))}
 
-                <div className="admin-activity-row">
-                  <div className="admin-activity-left">
-                    <div className="admin-activity-circle circle-blue">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                      </svg>
+                {myAssets.map((asset) => (
+                  <div className="admin-activity-row" key={asset.tokenId}>
+                    <div className="admin-activity-left">
+                      <div className="admin-activity-circle circle-teal">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </div>
+                      <div className="admin-activity-content">
+                        <span className="admin-activity-title">Asset allocated to custody</span>
+                        <span className="auditor-activity-id">{asset.tokenId} ({asset.name || asset.tokenType || 'Secure Asset'})</span>
+                        <span className="admin-activity-subtext">Status: {asset.status || 'ACTIVE'} &bull; Channel: mychannel</span>
+                      </div>
                     </div>
-                    <div className="admin-activity-content">
-                      <span className="admin-activity-title">Transfer request created</span>
-                      <span className="auditor-activity-id">AST-087 &rarr; USER-014</span>
-                      <span className="admin-activity-subtext">Pending Manager sign-off</span>
-                    </div>
+                    <button
+                      type="button"
+                      className="btn-inspect-link"
+                      onClick={() => onViewProvenance(asset.tokenId)}
+                    >
+                      View History
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-inspect-link"
-                    onClick={() => setActiveTab('transfer-requests')}
-                  >
-                    View Status
-                  </button>
-                </div>
+                ))}
 
                 <div className="admin-activity-row">
                   <div className="admin-activity-left">
@@ -866,7 +861,7 @@ export default function UserView({
                     <div className="admin-activity-content">
                       <span className="admin-activity-title">DID Identity registered</span>
                       <span className="auditor-activity-id">{currentDID}</span>
-                      <span className="admin-activity-subtext">Cryptographic credential issued</span>
+                      <span className="admin-activity-subtext">Cryptographic credential verified on Fabric Ledger &amp; MongoDB</span>
                     </div>
                   </div>
                   <button

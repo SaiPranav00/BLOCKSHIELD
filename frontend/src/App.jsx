@@ -265,12 +265,12 @@ function App() {
         />
       )}
 
-      {/* Floating Chat Trigger Button - Accessible across all 4 roles */}
-      {!showCommChannel && (
+      {/* Floating Chat Trigger Button - Only within authenticated role workspaces, NEVER on the landing page */}
+      {!showCommChannel && authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING' && (
         <button
           className="floating-chat-fab"
           onClick={() => setShowCommChannel(true)}
-          title={`Open Full Page Zoom Chat (${activeRole})`}
+          title={`Open Chat & Tasks (${activeRole})`}
         >
           <span className="fab-icon">💬</span>
           <span className="fab-label">Group Chat</span>

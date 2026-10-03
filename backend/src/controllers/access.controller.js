@@ -1,5 +1,6 @@
 const { evaluateTransaction } = require('../fabric/gateway');
 const { verifyDIDSignature } = require('../crypto/didCrypto');
+const User = require('../models/User');
 
 exports.verifyAuth = async (req, res) => {
     try {
@@ -37,23 +38,6 @@ exports.checkAccess = async (req, res) => {
     }
 };
 
-// Simple User & Role Credential Store (Single System Admin: did:sih26125:ADMIN001)
-const userCredentials = new Map([
-    ['did:sih26125:ADMIN001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Marcus Chen' }],
-    ['did:sih26125:ADMIN-001', { password: 'password123', role: 'ADMIN', status: 'ACTIVE', name: 'Marcus Chen' }],
-    ['did:sih26125:MANAGER001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
-    ['did:sih26125:MANAGER-001', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
-    ['did:sih26125:MANAGER-002', { password: 'password123', role: 'MANAGER', status: 'ACTIVE', name: 'Elena Vance' }],
-    ['did:sih26125:AUDITOR001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Priya Nair' }],
-    ['did:sih26125:AUDITOR-001', { password: 'password123', role: 'AUDITOR', status: 'ACTIVE', name: 'Priya Nair' }],
-    ['did:sih26125:USER001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
-    ['did:sih26125:USER-001', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
-    ['did:sih26125:USER-014', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Jordan Lee' }],
-    ['did:sih26125:CITIZEN_KUMAR', { password: 'password123', role: 'USER', status: 'ACTIVE', name: 'Rajesh Kumar' }],
-]);
-
-exports.getUserCredentials = () => userCredentials;
-
 exports.login = async (req, res) => {
     try {
         const { identity, password, role } = req.body;
@@ -61,39 +45,72 @@ exports.login = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Please enter DID/Username and password' });
         }
 
-        let cleanDid = identity.trim();
+        const rawIdent = identity.trim();
+        const stripped = rawIdent.replace(/[-\s_]/g, '').toUpperCase();
+
+        // Support demo aliases seamlessly
+        let aliasTarget = stripped;
+        if (stripped === 'ADMIN' || stripped === 'ADMIN001' || stripped === 'ADMIN1') aliasTarget = 'ADMIN001';
+        else if (stripped === 'MANAGER' || stripped === 'MANAGER001' || stripped === 'MANAGER002' || stripped === 'MANAGER1') aliasTarget = 'MANAGER001';
+        else if (stripped === 'AUDITOR' || stripped === 'AUDITOR001' || stripped === 'AUDITOR1') aliasTarget = 'AUDITOR001';
+        else if (stripped === 'USER' || stripped === 'USER001' || stripped === 'USER014' || stripped === 'USER1') aliasTarget = 'USER001';
+
+        let cleanDid = rawIdent;
         if (!cleanDid.startsWith('did:sih26125:')) {
             const cleanSuffix = cleanDid.replace(/^did:[^:]+:/i, '').replace(/^did:/i, '');
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
+        const shortName = cleanDid.replace('did:sih26125:', '');
 
-        const cred = userCredentials.get(cleanDid) || userCredentials.get(cleanDid.replace('did:sih26125:', ''));
-        if (cred && cred.password !== password) {
-            return res.status(401).json({ success: false, error: 'Invalid credentials password' });
+        // Query real MongoDB User model (No hardcoded credentials)
+        const userDoc = await User.findOne({
+            $or: [
+                { username: { $regex: new RegExp(`^${aliasTarget}$`, 'i') } },
+                { did: { $regex: new RegExp(`^did:sih26125:${aliasTarget}$`, 'i') } },
+                { did: cleanDid },
+                { username: shortName },
+                { username: rawIdent },
+                { username: { $regex: new RegExp(`^${stripped}$`, 'i') } }
+            ]
+        });
+
+        if (userDoc) {
+            cleanDid = userDoc.did;
+
+            if (userDoc.password !== password) {
+                return res.status(401).json({ success: false, error: 'Invalid credentials password' });
+            }
+
+            // Check if user is still pending Admin approval
+            if (userDoc.status === 'PENDING_APPROVAL') {
+                return res.status(403).json({
+                    success: false,
+                    authenticated: false,
+                    error: `Account request for ${cleanDid} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors.`
+                });
+            }
+
+            if (userDoc.status === 'REVOKED') {
+                return res.status(403).json({ success: false, error: `Identity ${cleanDid} is REVOKED by Administrator policy.` });
+            }
         }
 
-        // Check if user is still pending Admin approval
-        if (cred && cred.status === 'PENDING_APPROVAL') {
-            return res.status(403).json({
-                success: false,
-                authenticated: false,
-                error: `Account request for ${cleanDid} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors.`
-            });
-        }
-
-        // Check Fabric ledger first for DID status & role
-        let ledgerRole = role || (cred ? cred.role : 'USER');
+        // Verify with Fabric ledger
+        let ledgerRole = role || (userDoc ? userDoc.role : 'USER');
         try {
             const didRecord = await evaluateTransaction('GetDID', cleanDid);
             if (didRecord && didRecord.status === 'REVOKED') {
+                if (userDoc) {
+                    userDoc.status = 'REVOKED';
+                    await userDoc.save();
+                }
                 return res.status(403).json({ success: false, error: `Identity ${cleanDid} is REVOKED on ledger` });
             }
             if (didRecord && didRecord.role) {
                 ledgerRole = didRecord.role;
             }
         } catch {
-            // Check if identity exists in credentials
-            if (!cred) {
+            if (!userDoc) {
                 return res.status(403).json({
                     success: false,
                     error: `Identity ${cleanDid} is not registered. Only the Administrator can create accounts for Users, Managers, and Auditors.`
@@ -104,9 +121,10 @@ exports.login = async (req, res) => {
         return res.status(200).json({
             success: true,
             authenticated: true,
-            did: cleanDid,
+            did: userDoc ? userDoc.did : cleanDid,
             role: ledgerRole,
-            username: cleanDid.replace('did:sih26125:', ''),
+            username: userDoc ? userDoc.username : shortName,
+            name: userDoc ? userDoc.name : shortName,
             token: `token_${Date.now()}`
         });
     } catch (err) {
@@ -144,29 +162,34 @@ exports.registerUser = async (req, res) => {
             const cleanSuffix = cleanDid.replace(/^did:[^:]+:/i, '').replace(/^did:/i, '');
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
+        const shortName = cleanDid.replace('did:sih26125:', '');
 
-        // Under BLOCKSHIELD enterprise governance:
-        // Admin is the sole authority who can create accounts for Users, Managers, and Auditors.
-        // Self-service registration enters PENDING_APPROVAL and queues for Admin approval.
+        // Enterprise governance: Admin is sole authority creating accounts
         const accountStatus = 'PENDING_APPROVAL';
 
-        userCredentials.set(cleanDid, {
-            password,
-            role: targetRole,
-            status: accountStatus,
-            name: username,
-            userCategory,
-            idProofType,
-            idProofNumber,
-            orgProof,
-            appliedAt: new Date().toISOString()
-        });
+        // Persist directly to MongoDB
+        await User.findOneAndUpdate(
+            { did: cleanDid },
+            {
+                did: cleanDid,
+                username: shortName,
+                password,
+                role: targetRole,
+                status: accountStatus,
+                name: username,
+                userCategory,
+                idProofType,
+                idProofNumber,
+                orgProof,
+            },
+            { upsert: true, new: true }
+        );
 
-        // Dispatch registration task to Admin channel
+        // Dispatch registration task to Admin channel in MongoDB
         const { addSystemSignupTask } = require('./messages.controller');
-        addSystemSignupTask({
+        await addSystemSignupTask({
             did: cleanDid,
-            username: cleanDid.replace('did:sih26125:', ''),
+            username: shortName,
             requestedRole: targetRole,
             userCategory,
             idProofType,
@@ -182,11 +205,10 @@ exports.registerUser = async (req, res) => {
             role: targetRole,
             status: accountStatus,
             userCategory,
-            username: cleanDid.replace('did:sih26125:', ''),
+            username: shortName,
             message: `Access application submitted! In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to create accounts and issue DIDs for Users, Managers, and Auditors. Your application is queued for Admin review.`
         });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
 };
-

@@ -33,17 +33,17 @@ export default function Header({
         </div>
       </div>
 
-      {/* Right: Clean Utility Bar (Zoom Chat & Tasks, User DID + Role Chip, Sign Out) */}
+      {/* Right: Clean Utility Bar (Chat & Tasks, User DID + Role Chip, Sign Out) */}
       <div className="header-meta">
-        {/* Communication Hub: Zoom Chat & Tasks */}
+        {/* Communication Hub: Chat & Tasks */}
         <button
           type="button"
           className="btn-comm-hub"
           onClick={onOpenCommChannel}
-          title="Open Full Page Zoom Chat & Tasks"
+          title="Open Chat &amp; Tasks"
         >
           <span className="comm-icon">💬</span>
-          <span>Zoom Chat &amp; Tasks</span>
+          <span>Chat &amp; Tasks</span>
           {unreadCount > 0 && (
             <span className="badge-unread-count">{unreadCount}</span>
           )}

@@ -76,6 +76,35 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
     }
   };
 
+  const handleOneClickLogin = async (u) => {
+    setIdentityInput(u.username);
+    setPasswordInput(u.password);
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const res = await loginUser({
+        identity: u.username,
+        password: u.password,
+        role: u.role,
+      });
+
+      if (res && res.authenticated) {
+        onLoginSuccess({
+          did: res.did,
+          role: res.role || u.role,
+          username: res.username || u.username,
+          documentAttached: false,
+        });
+      } else {
+        setErrorMsg((res && res.error) || 'Authentication failed. Please verify credentials.');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || '1-Click demo authentication failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -233,20 +262,16 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           {mode === 'login' && (
             <div className="form-layout">
               <div className="auth-demo-picker-box">
-                <span className="auth-demo-picker-label">⚡ 1-Click Demo Accounts:</span>
+                <span className="auth-demo-picker-label">⚡ 1-Click Instant Sign In:</span>
                 <div className="auth-demo-picker-chips">
                   {DEMO_USERS.map((u) => (
                     <button
                       key={u.id}
                       type="button"
                       className={`btn-demo-chip ${u.username === identityInput ? 'active' : ''}`}
-                      onClick={() => {
-                        setIdentityInput(u.username);
-                        setPasswordInput(u.password);
-                        setErrorMsg('');
-                        setSuccessInfo(null);
-                      }}
-                      title={`${u.displayName} (${u.title})`}
+                      onClick={() => handleOneClickLogin(u)}
+                      disabled={loading}
+                      title={`Instant 1-Click Login as ${u.displayName} (${u.role})`}
                     >
                       <span className="demo-chip-role-tag">{u.role}</span>
                       <span className="demo-chip-user">{u.username}</span>
