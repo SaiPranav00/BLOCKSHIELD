@@ -940,14 +940,6 @@ export const localDatabase = {
     }
 
     const rawIdent = identity.trim();
-    const stripped = rawIdent.replace(/[-\s_]/g, '').toUpperCase();
-
-    let aliasTarget = stripped;
-    if (stripped === 'ADMIN' || stripped === 'ADMIN001' || stripped === 'ADMIN1') aliasTarget = 'ADMIN001';
-    else if (stripped === 'MANAGER' || stripped === 'MANAGER001' || stripped === 'MANAGER1') aliasTarget = 'MANAGER001';
-    else if (stripped === 'AUDITOR' || stripped === 'AUDITOR001' || stripped === 'AUDITOR1') aliasTarget = 'AUDITOR001';
-    else if (stripped === 'USER' || stripped === 'USER001' || stripped === 'USER1') aliasTarget = 'USER001';
-
     let cleanDid = rawIdent;
     if (!cleanDid.startsWith('did:sih26125:')) {
       const cleanSuffix = cleanDid.replace(/^did:[^:]+:/i, '').replace(/^did:/i, '');
@@ -956,16 +948,33 @@ export const localDatabase = {
     const shortName = cleanDid.replace('did:sih26125:', '');
 
     const users = getCollection('users') || [];
-    const user = users.find(u =>
-      u.username.toUpperCase() === aliasTarget ||
-      u.did.toUpperCase() === `did:sih26125:${aliasTarget}`.toUpperCase() ||
+
+    // Step 1: Exact match on DID or username takes absolute priority
+    let user = users.find(u =>
       u.did.toLowerCase() === cleanDid.toLowerCase() ||
       u.username.toLowerCase() === shortName.toLowerCase() ||
       u.username.toLowerCase() === rawIdent.toLowerCase()
     );
 
+    // Step 2: Only if no exact match is found, check for demo shortcut aliases
     if (!user) {
-      throw new Error(`Identity '${rawIdent}' is not registered. Please sign in with a demo account or register.`);
+      const stripped = rawIdent.replace(/[-\s_]/g, '').toUpperCase();
+      let aliasTarget = null;
+      if (stripped === 'ADMIN' || stripped === 'ADMIN001' || stripped === 'ADMIN1') aliasTarget = 'ADMIN001';
+      else if (stripped === 'MANAGER' || stripped === 'MANAGER001' || stripped === 'MANAGER1') aliasTarget = 'MANAGER001';
+      else if (stripped === 'AUDITOR' || stripped === 'AUDITOR001' || stripped === 'AUDITOR1') aliasTarget = 'AUDITOR001';
+      else if (stripped === 'USER' || stripped === 'USER001' || stripped === 'USER1') aliasTarget = 'USER001';
+
+      if (aliasTarget) {
+        user = users.find(u =>
+          u.username.toUpperCase() === aliasTarget ||
+          u.did.toUpperCase() === `did:sih26125:${aliasTarget}`.toUpperCase()
+        );
+      }
+    }
+
+    if (!user) {
+      throw new Error(`Identity '${rawIdent}' is not registered. Please sign in with a verified account or register.`);
     }
 
     if (user.password !== password) {
@@ -974,6 +983,7 @@ export const localDatabase = {
     }
 
     if (user.status === 'PENDING_APPROVAL') {
+      recordAuditLog(user.did, 'LOGIN_BLOCKED_PENDING', user.did, 'DENIED', `Access rejected. Account request for ${user.did} is PENDING manual approval by the Administrator.`, { policyRule: 'BEL-ONBOARDING-POLICY-04' });
       throw new Error(`Account request for ${user.did} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to manually approve and activate accounts.`);
     }
 
@@ -1028,8 +1038,36 @@ export const localDatabase = {
     }
     const shortName = cleanDid.replace('did:sih26125:', '');
 
+    const RESERVED_USERNAMES = [
+      'ADMIN', 'ADMIN001', 'ADMIN1',
+      'MANAGER', 'MANAGER001', 'MANAGER1',
+      'AUDITOR', 'AUDITOR001', 'AUDITOR1',
+      'USER', 'USER001', 'USER1',
+      'N123456'
+    ];
+
+    if (RESERVED_USERNAMES.includes(shortName.toUpperCase()) || RESERVED_USERNAMES.includes(cleanInput.toUpperCase())) {
+      throw new Error(`Username '${shortName}' is a reserved system identity. Please choose a unique personal or organizational username.`);
+    }
+
     const users = getCollection('users') || [];
     const existingIndex = users.findIndex(u => u.did.toLowerCase() === cleanDid.toLowerCase() || u.username.toLowerCase() === shortName.toLowerCase());
+
+    if (existingIndex >= 0) {
+      const existing = users[existingIndex];
+      if (existing.status === 'PENDING_APPROVAL') {
+        throw new Error(`An account registration for '${shortName}' (${cleanDid}) has already been submitted and is currently awaiting manual Administrator approval.`);
+      }
+      if (existing.status === 'ACTIVE') {
+        throw new Error(`An account for '${shortName}' (${cleanDid}) is already active on the ledger. Please sign in instead.`);
+      }
+      if (existing.status === 'DENIED') {
+        throw new Error(`Previous account registration for '${shortName}' was denied by Administrator. Please contact Administrator.`);
+      }
+      if (existing.status === 'REVOKED') {
+        throw new Error(`Account '${cleanDid}' is revoked by security policy.`);
+      }
+    }
 
     const accountStatus = autoVerify ? 'ACTIVE' : 'PENDING_APPROVAL';
 
@@ -1049,11 +1087,7 @@ export const localDatabase = {
       updatedAt: new Date().toISOString()
     };
 
-    if (existingIndex >= 0) {
-      users[existingIndex] = { ...users[existingIndex], ...newUser };
-    } else {
-      users.push(newUser);
-    }
+    users.push(newUser);
     saveCollection('users', users);
 
     // Create system signup thread for Admin review
@@ -1404,6 +1438,13 @@ export const localDatabase = {
     }
 
     const initialOwner = ownerDID || targetOwnerDID || adminDID;
+    if (initialOwner && initialOwner !== adminDID) {
+      const users = getCollection('users') || [];
+      const targetUser = users.find(u => u.did.toLowerCase() === initialOwner.toLowerCase() || u.username.toLowerCase() === initialOwner.toLowerCase());
+      if (targetUser && targetUser.status !== 'ACTIVE') {
+        throw new Error(`Cannot assign minted asset to ${initialOwner}. Account status is ${targetUser.status} (requires active, approved account).`);
+      }
+    }
     const metaStr = typeof metadata === 'object' ? JSON.stringify(metadata) : (metadata || '{}');
 
     const newAsset = {
@@ -1453,6 +1494,12 @@ export const localDatabase = {
     await simulateLatency(15);
     if (!ownerDID) throw new Error('Missing required parameter: ownerDID');
 
+    const users = getCollection('users') || [];
+    const targetUser = users.find(u => u.did.toLowerCase() === ownerDID.toLowerCase() || u.username.toLowerCase() === ownerDID.toLowerCase());
+    if (targetUser && targetUser.status !== 'ACTIVE') {
+      throw new Error(`Cannot allocate asset to ${ownerDID}. Account status is ${targetUser.status} (requires active, approved account).`);
+    }
+
     const nfts = getCollection('nfts') || [];
     const asset = nfts.find(a => a.tokenId === tokenId);
     if (!asset) throw new Error(`Asset ${tokenId} not found`);
@@ -1491,6 +1538,12 @@ export const localDatabase = {
   async transferNFT(tokenId, { actorDID, newOwnerDID }) {
     await simulateLatency(15);
     if (!newOwnerDID) throw new Error('Missing parameter: newOwnerDID');
+
+    const users = getCollection('users') || [];
+    const targetUser = users.find(u => u.did.toLowerCase() === newOwnerDID.toLowerCase() || u.username.toLowerCase() === newOwnerDID.toLowerCase());
+    if (targetUser && targetUser.status !== 'ACTIVE') {
+      throw new Error(`Cannot transfer asset to ${newOwnerDID}. Account status is ${targetUser.status} (requires active, approved account).`);
+    }
 
     const nfts = getCollection('nfts') || [];
     const asset = nfts.find(a => a.tokenId === tokenId);
@@ -1593,6 +1646,17 @@ export const localDatabase = {
 
     if (!sender || !tokenId || !recipient) {
       throw new Error('Missing required fields: requestedByDID, tokenId, toDID');
+    }
+
+    const users = getCollection('users') || [];
+    const targetUser = users.find(u => u.did.toLowerCase() === recipient.toLowerCase() || u.username.toLowerCase() === recipient.toLowerCase());
+    if (targetUser && targetUser.status !== 'ACTIVE') {
+      throw new Error(`Target recipient ${recipient} is not an active verified identity (status: ${targetUser.status}). Transfer requests can only be sent to approved active accounts.`);
+    }
+
+    const senderUser = users.find(u => u.did.toLowerCase() === sender.toLowerCase() || u.username.toLowerCase() === sender.toLowerCase());
+    if (senderUser && senderUser.status !== 'ACTIVE') {
+      throw new Error(`Sender account ${sender} is not active (status: ${senderUser.status}).`);
     }
 
     const nfts = getCollection('nfts') || [];

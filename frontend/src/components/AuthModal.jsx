@@ -84,6 +84,10 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
       });
 
       if (res && res.authenticated) {
+        if (res.status === 'PENDING_APPROVAL') {
+          setErrorMsg(`Account request for ${res.did || u.username} is PENDING Administrator approval.`);
+          return;
+        }
         onLoginSuccess({
           did: res.did,
           role: res.role || u.role,
@@ -118,13 +122,19 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           role: targetRole,
         });
 
-        if (res.authenticated) {
+        if (res && res.authenticated) {
+          if (res.status === 'PENDING_APPROVAL') {
+            setErrorMsg(`Account request for ${res.did || identityInput.trim()} is PENDING Administrator approval. Please await manual Admin review.`);
+            return;
+          }
           onLoginSuccess({
             did: res.did,
             role: res.role || targetRole,
             username: res.username || res.did,
             documentAttached: !!docFile,
           });
+        } else {
+          setErrorMsg((res && res.error) || 'Authentication failed. Please check credentials.');
         }
       } catch (err) {
         setErrorMsg(err.message || 'Authentication failed. Please check credentials.');

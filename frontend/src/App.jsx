@@ -42,24 +42,18 @@ function App() {
   const initialSession = getInitialSession();
   const savedView = getInitialView();
 
-  const initialView = savedView || (initialSession?.role ? initialSession.role : (
-    initialPort === '5174' ? 'ADMIN_LANDING'
-    : initialPort === '5175' ? 'MANAGER'
-    : initialPort === '5176' ? 'AUDITOR'
-    : 'PORTAL'
-  ));
+  const defaultPublicView = initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL';
+  const initialView = initialSession?.role
+    ? (savedView || initialSession.role)
+    : defaultPublicView;
 
   const initialRole = initialSession?.role || (
     initialPort === '5174' ? 'ADMIN'
-    : initialPort === '5175' ? 'MANAGER'
-    : initialPort === '5176' ? 'AUDITOR'
     : 'USER'
   );
 
   const initialDID = initialSession?.did || (
     initialPort === '5174' ? 'did:sih26125:ADMIN001'
-    : initialPort === '5175' ? 'did:sih26125:MANAGER001'
-    : initialPort === '5176' ? 'did:sih26125:AUDITOR001'
     : 'did:sih26125:USER001'
   );
 
@@ -221,6 +215,16 @@ function App() {
       window.removeEventListener('blockshield:data-change', handleDataChange);
     };
   }, [activeRole, activeDID]);
+
+  // Security Guard: Prevent unauthenticated access to protected workspaces
+  useEffect(() => {
+    if (!authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING') {
+      const fallback = initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL';
+      changeView(fallback);
+      setPendingRoleTarget(currentView);
+      setShowAuthModal(true);
+    }
+  }, [authUser, currentView]);
 
   const handleMetricsUpdate = (newMetrics) => {
     setMetrics((prev) => ({ ...prev, ...newMetrics }));

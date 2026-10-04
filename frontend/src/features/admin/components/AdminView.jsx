@@ -486,7 +486,7 @@ export default function AdminView({
   });
 
   const filteredTargetDids = didsList
-    .filter(d => d.status !== 'REVOKED')
+    .filter(d => d.status === 'ACTIVE')
     .filter(d => {
       if (!mintTargetSearch.trim()) return true;
       const q = mintTargetSearch.toLowerCase().trim();
@@ -849,7 +849,7 @@ export default function AdminView({
               </div>
               <div className="metric-title-text">Active identities</div>
               <div className="metric-sub-text">
-                {didsList.filter(d => d.status !== 'REVOKED').length} verified on ledger
+                {didsList.filter(d => d.status === 'ACTIVE').length} verified on ledger
               </div>
             </div>
 
@@ -1779,7 +1779,7 @@ export default function AdminView({
                         onChange={(e) => setRevokeDidInput(e.target.value)}
                       >
                         <option value="">-- Select Active DID from Directory --</option>
-                        {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
+                        {didsList.filter(d => d.status === 'ACTIVE').map((d, idx) => (
                           <option key={idx} value={d.did}>
                             {d.did} [{d.role}]
                           </option>
@@ -1818,7 +1818,7 @@ export default function AdminView({
                       </tr>
                     </thead>
                     <tbody>
-                      {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
+                      {didsList.filter(d => d.status === 'ACTIVE').map((d, idx) => (
                         <tr key={idx}>
                           <td><code>{d.did}</code></td>
                           <td><span className={`role-pill role-${(d.role || '').toLowerCase()}`}>{d.role}</span></td>
@@ -2192,7 +2192,7 @@ export default function AdminView({
                         onChange={(e) => setAllocOwnerDid(e.target.value)}
                       >
                         <option value="">-- Select Target DID from Registry --</option>
-                        {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
+                        {didsList.filter(d => d.status === 'ACTIVE').map((d, idx) => (
                           <option key={idx} value={d.did}>
                             {d.did} [{d.role}]
                           </option>
@@ -2308,7 +2308,7 @@ export default function AdminView({
                         onChange={(e) => setTransNewOwnerDid(e.target.value)}
                       >
                         <option value="">-- Select Recipient DID from Registry --</option>
-                        {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
+                        {didsList.filter(d => d.status === 'ACTIVE').map((d, idx) => (
                           <option key={idx} value={d.did}>
                             {d.did} [{d.role}]
                           </option>

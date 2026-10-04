@@ -776,10 +776,10 @@ export default function UserView({
                       onChange={(e) => setTransRecipientDid(e.target.value)}
                       required
                     />
-                    {allDids.length > 0 && (
+                    {allDids.filter(d => d.did !== currentDID && d.status === 'ACTIVE').length > 0 && (
                       <div className="mt-1 flex-gap flex-wrap">
                         <span className="text-xs text-muted">Registered DIDs:</span>
-                        {allDids.filter(d => d.did !== currentDID).map(d => (
+                        {allDids.filter(d => d.did !== currentDID && d.status === 'ACTIVE').map(d => (
                           <button
                             key={d.did}
                             type="button"

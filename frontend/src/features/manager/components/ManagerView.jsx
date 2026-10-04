@@ -525,10 +525,10 @@ export default function ManagerView({
               </div>
 
               <div className="metric-number-big">
-                {didsList.length}
+                {didsList.filter(d => d.status === 'ACTIVE').length}
               </div>
               <div className="metric-title-text">People</div>
-              <div className="metric-sub-text">Verified personnel records</div>
+              <div className="metric-sub-text">Verified active personnel</div>
             </div>
           </div>
         )}
@@ -947,7 +947,7 @@ export default function ManagerView({
                         </td>
                       </tr>
                     ) : (
-                      filteredPersonnelList.map((usr) => (
+                      filteredPersonnelList.filter(usr => usr.status === 'ACTIVE').map((usr) => (
                         <tr key={usr.did}>
                           <td><code>{usr.did}</code></td>
                           <td><span className="type-pill">{usr.role}</span></td>
