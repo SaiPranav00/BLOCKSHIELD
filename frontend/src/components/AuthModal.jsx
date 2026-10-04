@@ -167,7 +167,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           idProofType,
           idProofNumber: idProofNumber.trim(),
           orgProof: orgProofData,
-          autoVerify: true,
+          autoVerify: false,
         });
 
         if (res.success) {
@@ -176,12 +176,9 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             username: res.username,
             role: res.role,
             verified: res.verified,
-            message: res.message,
+            status: res.status || 'PENDING_APPROVAL',
+            message: res.message || 'Access application submitted! Queued for manual Administrator review and approval.',
           });
-          // Switch to sign in pre-filled with newly generated DID
-          setIdentityInput(res.did);
-          setPasswordInput(regPassword);
-          setMode('login');
         }
       } catch (err) {
         setErrorMsg(err.message || 'Registration failed. Please check submitted proofs.');
@@ -357,7 +354,90 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           )}
 
           {/* MODE 2: MULTI-CATEGORY REGISTRATION REQUEST */}
-          {mode === 'register' && (
+          {mode === 'register' && successInfo ? (
+            <div className="form-layout" style={{ textAlign: 'center', padding: '10px 0' }}>
+              <div style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '50%',
+                background: '#fef3c7',
+                color: '#d97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 14px auto',
+                border: '2px solid #fde68a'
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
+                Account Request Queued for Admin Approval
+              </h3>
+
+              <div style={{ marginBottom: '16px' }}>
+                <span style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #fde68a',
+                  letterSpacing: '0.04em'
+                }}>
+                  PENDING MANUAL ADMIN APPROVAL
+                </span>
+              </div>
+
+              <div className="admin-governance-notice" style={{ marginBottom: '1.25rem', textAlign: 'left' }}>
+                <span className="notice-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                </span>
+                <div>
+                  <strong>Mandatory Governance Policy:</strong> The System Administrator is the <u>sole authorized person</u> who manually approves or denies new account registrations. Your verification credentials have been securely queued on the ledger.
+                </div>
+              </div>
+
+              <div style={{
+                background: '#f8fafc',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                padding: '16px',
+                textAlign: 'left',
+                fontSize: '0.82rem',
+                color: '#334155',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                marginBottom: '20px'
+              }}>
+                <div><strong>Requested Username:</strong> {successInfo.username}</div>
+                <div><strong>Assigned DID Identifier:</strong> <code style={{ fontSize: '0.78rem' }}>{successInfo.did}</code></div>
+                <div><strong>Requested Workspace Role:</strong> <span className={`role-pill role-${(successInfo.role || '').toLowerCase()}`}>{successInfo.role}</span></div>
+                <div><strong>Current Ledger Status:</strong> <span style={{ color: '#d97706', fontWeight: 700 }}>Awaiting Administrator Review &amp; Activation</span></div>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-primary btn-block btn-lg"
+                onClick={() => {
+                  setIdentityInput(successInfo.did);
+                  setPasswordInput(regPassword);
+                  setMode('login');
+                  setSuccessInfo(null);
+                }}
+              >
+                <span>Return to Sign In</span>
+                <span className="btn-arrow-right">→</span>
+              </button>
+            </div>
+          ) : mode === 'register' && (
             <div className="form-layout">
               {/* Exclusive Admin Authority Policy Notice */}
               <div className="admin-governance-notice" style={{ marginBottom: '1.25rem' }}>

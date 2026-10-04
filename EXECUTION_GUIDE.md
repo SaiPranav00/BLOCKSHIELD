@@ -12,27 +12,22 @@ BLOCKSHIELD includes a built-in **Sovereign Local Database & Ledger Engine**. An
 * **Node.js**: v18.0.0 or higher
 * **npm**: v9.0.0 or higher
 
-### 🚀 1-Minute Launch
+### 🚀 1-Minute Launch (Using Startup Script)
+Simply run the dedicated standalone startup script from the project root:
 ```bash
-# 1. Clone the repository and checkout the branch
+# 1. Clone the repository and navigate to folder
 git clone <YOUR_GIT_REPO_URL>
 cd BLOCKSHIELD
-git checkout varun
 
-# 2. Install frontend dependencies
-cd frontend
-npm install
-
-# 3. Start the application
-npm run dev
+# 2. Execute the standalone startup script (handles dependencies & starts app)
+./run.sh
 ```
+*(Alternatively, you can also run `./start-frontend.sh` or `npm start`).*
 
 Open your browser and navigate to:
 ```
 http://localhost:5173
 ```
-
-*(Alternatively, from the project root you can run `npm run dev` after installing frontend dependencies).*
 
 ---
 

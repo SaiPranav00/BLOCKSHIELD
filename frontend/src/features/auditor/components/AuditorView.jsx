@@ -29,6 +29,8 @@ export default function AuditorView({
   const [assetSearch, setAssetSearch] = useState('');
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [deniedOnly, setDeniedOnly] = useState(false);
+  const [auditPageSize, setAuditPageSize] = useState(10);
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
 
   const [verifyInput, setVerifyInput] = useState('');
   const [provTokenId, setProvTokenId] = useState('');
@@ -159,6 +161,11 @@ export default function AuditorView({
         payloadStr.includes(q)
       );
     });
+
+  const totalAuditPages = Math.ceil(filteredAuditsList.length / auditPageSize) || 1;
+  const safeAuditPage = Math.min(Math.max(1, auditCurrentPage), totalAuditPages);
+  const startAuditIdx = (safeAuditPage - 1) * auditPageSize;
+  const paginatedAudits = filteredAuditsList.slice(startAuditIdx, startAuditIdx + auditPageSize);
 
   const filteredAssetsList = nftsList.filter(item => {
     if (!assetSearch.trim()) return true;
@@ -369,82 +376,84 @@ export default function AuditorView({
           </div>
         </div>
 
-        {/* 3 Metric Cards Row (Recorded events, Identities, Assets) */}
-        <div className="admin-metrics-row">
-          {/* Card 1: Recorded events */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('all-logs')}
-            title="Click to view Audit Trail"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="8" y1="6" x2="21" y2="6"/>
-                  <line x1="8" y1="12" x2="21" y2="12"/>
-                  <line x1="8" y1="18" x2="21" y2="18"/>
-                  <line x1="3" y1="6" x2="3.01" y2="6"/>
-                  <line x1="3" y1="12" x2="3.01" y2="12"/>
-                  <line x1="3" y1="18" x2="3.01" y2="18"/>
-                </svg>
+        {/* 3 Metric Cards Row (Recorded events, Identities, Assets) - Visible ONLY in Overview */}
+        {activeTab === 'overview' && (
+          <div className="admin-metrics-row">
+            {/* Card 1: Recorded events */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('all-logs')}
+              title="Click to view Audit Trail"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"/>
+                    <line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/>
+                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Immutable</span>
               </div>
-              <span className="metric-tag-badge">Immutable</span>
-            </div>
 
-            <div className="metric-number-big">
-              {auditList.length.toLocaleString()}
-            </div>
-            <div className="metric-title-text">Recorded events</div>
-            <div className="metric-sub-text">All activity retained for review</div>
-          </div>
-
-          {/* Card 2: Identities */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('filter-resource')}
-            title="Click to view Identity History"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  <polyline points="9 12 11 14 15 10"/>
-                </svg>
+              <div className="metric-number-big">
+                {auditList.length.toLocaleString()}
               </div>
-              <span className="metric-tag-badge">Verified</span>
+              <div className="metric-title-text">Recorded events</div>
+              <div className="metric-sub-text">All activity retained for review</div>
             </div>
 
-            <div className="metric-number-big">
-              {didsList.length}
-            </div>
-            <div className="metric-title-text">Identities</div>
-            <div className="metric-sub-text">DID records in the registry</div>
-          </div>
-
-          {/* Card 3: Assets */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('dept-assets')}
-            title="Click to view Asset History"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                  <polyline points="2 17 12 22 22 17"/>
-                  <polyline points="2 12 12 17 22 12"/>
-                </svg>
+            {/* Card 2: Identities */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('filter-resource')}
+              title="Click to view Identity History"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Verified</span>
               </div>
-              <span className="metric-tag-badge">Tracked</span>
+
+              <div className="metric-number-big">
+                {didsList.length}
+              </div>
+              <div className="metric-title-text">Identities</div>
+              <div className="metric-sub-text">DID records in the registry</div>
             </div>
 
-            <div className="metric-number-big">
-              {nftsList.length}
+            {/* Card 3: Assets */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('dept-assets')}
+              title="Click to view Asset History"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#059669' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Tracked</span>
+              </div>
+
+              <div className="metric-number-big">
+                {nftsList.length}
+              </div>
+              <div className="metric-title-text">Assets</div>
+              <div className="metric-sub-text">Current provenance available</div>
             </div>
-            <div className="metric-title-text">Assets</div>
-            <div className="metric-sub-text">Current provenance available</div>
           </div>
-        </div>
+        )}
 
         {/* Workspace Body Content */}
         <div className="admin-tab-body">
@@ -624,8 +633,16 @@ export default function AuditorView({
                 </div>
               </div>
 
-              <div className="table-responsive">
-                <table className="data-table">
+              <div className="table-responsive-fit">
+                <table className="data-table audit-table-fit">
+                  <colgroup>
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '22%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '13%' }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Timestamp</th>
@@ -633,7 +650,7 @@ export default function AuditorView({
                       <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
-                      <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
+                      <th style={{ textAlign: 'center' }}>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -642,7 +659,7 @@ export default function AuditorView({
                         <td colSpan="6" className="text-center py-4 text-muted">No audit events match your filter criteria.</td>
                       </tr>
                     ) : (
-                      filteredAuditsList.map((log, index) => {
+                      paginatedAudits.map((log, index) => {
                         const isDenied = log.result === 'DENIED';
                         const formattedTime = log.timestamp && !isNaN(log.timestamp)
                           ? new Date(Number(log.timestamp) * 1000).toLocaleString()
@@ -650,15 +667,18 @@ export default function AuditorView({
 
                         return (
                           <tr key={log.eventId || index} className={isDenied ? 'row-denied' : ''}>
-                            <td className="text-xs" style={{ whiteSpace: 'nowrap' }}>{formattedTime}</td>
+                            <td className="text-xs">
+                              <div>{formattedTime}</div>
+                              {log.blockNumber && <span className="type-pill" style={{ fontSize: '0.65rem', marginTop: '2px', display: 'inline-block' }}>Block #{log.blockNumber}</span>}
+                            </td>
                             <td><span className="type-pill">{log.action}</span></td>
-                            <td><code>{log.resourceId}</code></td>
+                            <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td>
                               <span className={`status-pill ${isDenied ? 'status-revoked' : 'status-active'}`}>
                                 {log.result}
                               </span>
                             </td>
-                            <td><code>{log.actorDID}</code></td>
+                            <td><code className="audit-cell-truncate" title={log.actorDID}>{log.actorDID}</code></td>
                             <td style={{ textAlign: 'center' }}>
                               <button
                                 type="button"
@@ -666,16 +686,18 @@ export default function AuditorView({
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '5px 12px',
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                  padding: '4px 8px',
                                   borderRadius: '6px',
                                   fontWeight: 600,
-                                  fontSize: '0.78rem',
+                                  fontSize: '0.74rem',
                                   borderColor: '#2563eb',
                                   color: '#2563eb',
                                   background: '#eff6ff',
                                   cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
+                                  width: '100%',
+                                  maxWidth: '110px'
                                 }}
                                 onClick={() => {
                                   setSelectedEvidenceLog(log);
@@ -683,12 +705,11 @@ export default function AuditorView({
                                 }}
                                 title="View audit details"
                               >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                   <polyline points="14 2 14 8 20 8"/>
                                   <line x1="16" y1="13" x2="8" y2="13"/>
                                   <line x1="16" y1="17" x2="8" y2="17"/>
-                                  <polyline points="10 9 9 9 8 9"/>
                                 </svg>
                                 <span>View Details</span>
                               </button>
@@ -699,6 +720,79 @@ export default function AuditorView({
                     )}
                   </tbody>
                 </table>
+
+                {/* Audit Pagination Controls */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  fontSize: '0.78rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#64748b' }}>Show</span>
+                    <select
+                      className="input input-xs"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '4px' }}
+                      value={auditPageSize}
+                      onChange={(e) => {
+                        setAuditPageSize(Number(e.target.value));
+                        setAuditCurrentPage(1);
+                      }}
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span style={{ color: '#64748b' }}>entries per page</span>
+                    <span style={{ color: '#cbd5e1', margin: '0 4px' }}>|</span>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>
+                      {filteredAuditsList.length === 0
+                        ? '0 entries'
+                        : `Showing ${startAuditIdx + 1} to ${Math.min(startAuditIdx + auditPageSize, filteredAuditsList.length)} of ${filteredAuditsList.length} entries`}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage <= 1}
+                      onClick={() => setAuditCurrentPage(p => Math.max(1, p - 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage <= 1 ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage <= 1 ? 0.5 : 1
+                      }}
+                    >
+                      &larr; Prev
+                    </button>
+                    <span style={{ fontSize: '0.76rem', color: '#334155', fontWeight: 600, padding: '0 6px' }}>
+                      Page {safeAuditPage} of {totalAuditPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage >= totalAuditPages}
+                      onClick={() => setAuditCurrentPage(p => Math.min(totalAuditPages, p + 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage >= totalAuditPages ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage >= totalAuditPages ? 0.5 : 1
+                      }}
+                    >
+                      Next &rarr;
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -817,23 +911,25 @@ export default function AuditorView({
                   No assets match your search criteria.
                 </div>
               ) : (
-                <div className="grid grid-3">
+                <div className="grid grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.25rem' }}>
                   {filteredAssetsList.map((asset) => (
-                    <div key={asset.tokenId} className="asset-card">
-                      <div className="asset-header">
-                        <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
-                      </div>
-                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                      <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
-                      {asset.assetId && <p className="asset-id">Asset ID: <code>{asset.assetId}</code></p>}
-                      <div className="asset-meta text-xs my-2">
-                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
-                        <p><strong>Department:</strong> {asset.department || 'R&D'}</p>
+                    <div key={asset.tokenId} className="asset-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.35rem', borderRadius: '14px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+                      <div>
+                        <div className="asset-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                          <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                          <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                        </div>
+                        <h4 className="asset-title" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: '#0f172a' }}>{asset.assetName || asset.name}</h4>
+                        <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Token ID: <code>{asset.tokenId}</code></p>
+                        {asset.assetId && <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Asset ID: <code>{asset.assetId}</code></p>}
+                        <div className="asset-meta text-xs my-2" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Custodian:</strong> <code style={{ fontSize: '0.72rem' }}>{asset.custodian || asset.ownerDID}</code></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Department:</strong> <span>{asset.department || 'R&D'}</span></p>
+                        </div>
                       </div>
                       <button
-                        className="btn btn-xs btn-secondary w-full mt-2"
+                        className="btn btn-xs btn-secondary w-full mt-3"
                         onClick={() => onViewProvenance(asset.tokenId)}
                       >
                         View Visual History Timeline
@@ -882,21 +978,23 @@ export default function AuditorView({
                   No assets match your search criteria.
                 </div>
               ) : (
-                <div className="grid grid-3">
+                <div className="grid grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.25rem' }}>
                   {filteredAssetsList.map((asset) => (
-                    <div key={asset.tokenId} className="asset-card">
-                      <div className="asset-header">
-                        <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
-                      </div>
-                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                      <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
-                      <div className="asset-meta text-xs my-2">
-                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                    <div key={asset.tokenId} className="asset-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.35rem', borderRadius: '14px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+                      <div>
+                        <div className="asset-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                          <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                          <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                        </div>
+                        <h4 className="asset-title" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: '#0f172a' }}>{asset.assetName || asset.name}</h4>
+                        <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Token ID: <code>{asset.tokenId}</code></p>
+                        <div className="asset-meta text-xs my-2" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Custodian:</strong> <code style={{ fontSize: '0.72rem' }}>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                        </div>
                       </div>
                       <button
-                        className="btn btn-xs btn-secondary w-full mt-2"
+                        className="btn btn-xs btn-secondary w-full mt-3"
                         onClick={() => onViewProvenance(asset.tokenId)}
                       >
                         Inspect Provenance &amp; Audit

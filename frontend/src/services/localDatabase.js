@@ -15,7 +15,7 @@
  */
 
 const STORAGE_KEY_PREFIX = 'blockshield_local_db_';
-const DB_VERSION = 'v4';
+const DB_VERSION = 'v5';
 
 const getKey = (collection) => `${STORAGE_KEY_PREFIX}${DB_VERSION}_${collection}`;
 
@@ -182,6 +182,22 @@ const SEED_USERS = [
     publicKey: '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4v81mP...N123456\n-----END PUBLIC KEY-----',
     createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
     updatedAt: new Date(Date.now() - 86400000 * 6).toISOString()
+  },
+  {
+    did: 'did:sih26125:SNEHA_ROY',
+    username: 'SNEHA_ROY',
+    name: 'Sneha Roy',
+    role: 'USER',
+    password: 'password123',
+    status: 'PENDING_APPROVAL',
+    department: 'Avionics Division',
+    userCategory: 'DEFENCE',
+    idProofType: 'GOVERNMENT_ID',
+    idProofNumber: 'GOV-IND-5521',
+    orgProof: { serviceId: 'BEL-AVN-2026', department: 'Avionics Division', authCode: 'BEL-SEC-2026' },
+    publicKey: '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9a77xb...SNEHA\n-----END PUBLIC KEY-----',
+    createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 4).toISOString()
   }
 ];
 
@@ -906,8 +922,19 @@ export const localDatabase = {
   },
 
   // --- AUTHENTICATION & REGISTRATION ---
-  async loginUser({ identity, password, role }) {
+  async loginUser(optionsOrIdentity, maybePassword, maybeRole) {
     await simulateLatency(15);
+    let identity, password, role;
+    if (typeof optionsOrIdentity === 'object' && optionsOrIdentity !== null) {
+      identity = optionsOrIdentity.identity || optionsOrIdentity.username || optionsOrIdentity.did;
+      password = optionsOrIdentity.password;
+      role = optionsOrIdentity.role;
+    } else {
+      identity = optionsOrIdentity;
+      password = maybePassword;
+      role = maybeRole;
+    }
+
     if (!identity || !password) {
       throw new Error('Please enter DID/Username and password');
     }
@@ -947,7 +974,13 @@ export const localDatabase = {
     }
 
     if (user.status === 'PENDING_APPROVAL') {
-      throw new Error(`Account request for ${user.did} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to approve and activate accounts.`);
+      throw new Error(`Account request for ${user.did} is PENDING Administrator approval. In accordance with BLOCKSHIELD enterprise governance, only the System Administrator is authorized to manually approve and activate accounts.`);
+    }
+
+    if (user.status === 'DENIED') {
+      const reasonMsg = user.denialReason ? ` Stated Reason: ${user.denialReason}` : '';
+      recordAuditLog(user.did, 'LOGIN_BLOCKED_DENIED', user.did, 'DENIED', `Access rejected. Account request for ${user.did} was DENIED by the Administrator.${reasonMsg}`, { policyRule: 'BEL-ONBOARDING-POLICY-04' });
+      throw new Error(`Account registration for ${user.did} was DENIED by the Administrator.${reasonMsg}`);
     }
 
     if (user.status === 'REVOKED') {
@@ -976,7 +1009,7 @@ export const localDatabase = {
     };
   },
 
-  async registerUserAcc({ username, password, role = 'USER', userCategory = 'NON_DEFENCE', idProofType, idProofNumber, orgProof = {}, autoVerify = true }) {
+  async registerUserAcc({ username, password, role = 'USER', userCategory = 'NON_DEFENCE', idProofType, idProofNumber, orgProof = {}, autoVerify = false }) {
     await simulateLatency(20);
     if (!username || !password) {
       throw new Error('Username and password are required.');
@@ -1238,6 +1271,87 @@ export const localDatabase = {
     const user = users.find(u => u.did === did);
     if (!user) throw new Error('Role not found');
     return { success: true, data: { did, role: user.role } };
+  },
+
+  async approveUserRegistration(targetDID, { adminDID = 'did:sih26125:ADMIN001' } = {}) {
+    await simulateLatency(15);
+    const users = getCollection('users') || [];
+    const user = users.find(u => u.did === targetDID || u.username === targetDID);
+    if (!user) throw new Error(`User account '${targetDID}' not found.`);
+
+    user.status = 'ACTIVE';
+    user.updatedAt = new Date().toISOString();
+    saveCollection('users', users);
+
+    // Update any linked message threads in Communication Hub
+    const threads = getCollection('message_threads') || [];
+    const linkedThread = threads.find(t => (t.senderDID === user.did || t.details?.requestedDID === user.did) && t.category === 'REGISTER_DID');
+    if (linkedThread) {
+      linkedThread.status = 'COMPLETED';
+      linkedThread.updatedAt = new Date().toISOString();
+      linkedThread.messages.push({
+        msgId: `msg-${Date.now()}`,
+        senderDID: adminDID,
+        senderName: 'Marcus Chen',
+        senderRole: 'ADMIN',
+        recipientTarget: 'EVERYONE',
+        content: `✓ ACCOUNT REGISTRATION APPROVED: Administrator approved account '${user.username}' (${user.did}) for role ${user.role}. Identity is now ACTIVE on sovereign ledger.`,
+        timestamp: new Date().toISOString()
+      });
+      saveCollection('message_threads', threads);
+    }
+
+    recordAuditLog(
+      adminDID,
+      'APPROVE_USER_REGISTRATION',
+      user.did,
+      'ALLOWED',
+      `Administrator Marcus Chen MANUALLY APPROVED and ACTIVATED account registration for '${user.name || user.username}' (${user.did}) requesting role ${user.role} [${user.userCategory}]. Cryptographic W3C DID document and workspace credentials confirmed on ledger.`,
+      { policyRule: 'BEL-ADMIN-ACCOUNT-GOVERNANCE-01', payload: { did: user.did, role: user.role, category: user.userCategory, approvedBy: adminDID } }
+    );
+
+    return { success: true, data: user, message: `Account ${user.did} successfully approved and activated!` };
+  },
+
+  async denyUserRegistration(targetDID, { adminDID = 'did:sih26125:ADMIN001', reason = 'Verification criteria not satisfied' } = {}) {
+    await simulateLatency(15);
+    const users = getCollection('users') || [];
+    const user = users.find(u => u.did === targetDID || u.username === targetDID);
+    if (!user) throw new Error(`User account '${targetDID}' not found.`);
+
+    user.status = 'DENIED';
+    user.denialReason = reason;
+    user.updatedAt = new Date().toISOString();
+    saveCollection('users', users);
+
+    // Update any linked message threads in Communication Hub
+    const threads = getCollection('message_threads') || [];
+    const linkedThread = threads.find(t => (t.senderDID === user.did || t.details?.requestedDID === user.did) && t.category === 'REGISTER_DID');
+    if (linkedThread) {
+      linkedThread.status = 'REJECTED';
+      linkedThread.updatedAt = new Date().toISOString();
+      linkedThread.messages.push({
+        msgId: `msg-${Date.now()}`,
+        senderDID: adminDID,
+        senderName: 'Marcus Chen',
+        senderRole: 'ADMIN',
+        recipientTarget: 'EVERYONE',
+        content: `✗ ACCOUNT REGISTRATION DENIED: Administrator rejected registration request for '${user.username}' (${user.did}). Reason: ${reason}`,
+        timestamp: new Date().toISOString()
+      });
+      saveCollection('message_threads', threads);
+    }
+
+    recordAuditLog(
+      adminDID,
+      'DENY_USER_REGISTRATION',
+      user.did,
+      'DENIED',
+      `Administrator Marcus Chen MANUALLY REJECTED account registration for '${user.name || user.username}' (${user.did}) requesting role ${user.role}. Stated Reason: ${reason}. Access permanently blocked.`,
+      { policyRule: 'BEL-ADMIN-ACCOUNT-GOVERNANCE-01', payload: { did: user.did, role: user.role, reason, deniedBy: adminDID } }
+    );
+
+    return { success: true, data: user, message: `Account registration for ${user.did} has been denied.` };
   },
 
   // --- NFT ASSET MANAGEMENT ---

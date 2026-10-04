@@ -14,6 +14,8 @@ import {
   generateKeyPair,
   isAssetLog,
   getLogCategoryDetails,
+  approveUserRegistration,
+  denyUserRegistration,
 } from '../../../services/api';
 import { parseList } from '../../../utils';
 import ForensicEvidenceModal from '../../../components/ForensicEvidenceModal';
@@ -71,6 +73,49 @@ export default function AdminView({
     }
   };
 
+  // Pending Account Approval State
+  const [denyingDid, setDenyingDid] = useState(null);
+  const [denialReasonInput, setDenialReasonInput] = useState('');
+  const [processingApproval, setProcessingApproval] = useState(false);
+
+  // Sub-tab selection under Identities tab: 'directory' | 'pending' | 'create'
+  const [identitySubTab, setIdentitySubTab] = useState('directory');
+
+  const pendingAccounts = didsList.filter(d => d.status === 'PENDING_APPROVAL');
+
+  const handleApproveAccount = async (did) => {
+    setProcessingApproval(true);
+    try {
+      const res = await approveUserRegistration(did, { adminDID: activeDID });
+      notify(res.message || `Account ${did} approved and activated on ledger!`, 'success');
+      refreshData();
+    } catch (err) {
+      notify(err.message || 'Failed to approve account', 'error');
+    } finally {
+      setProcessingApproval(false);
+    }
+  };
+
+  const handleDenyAccount = async (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (!denyingDid) return;
+    setProcessingApproval(true);
+    try {
+      const res = await denyUserRegistration(denyingDid, {
+        adminDID: activeDID,
+        reason: denialReasonInput.trim() || 'Verification credentials or department proofs not satisfied.'
+      });
+      notify(res.message || `Account registration for ${denyingDid} denied.`, 'info');
+      setDenyingDid(null);
+      setDenialReasonInput('');
+      refreshData();
+    } catch (err) {
+      notify(err.message || 'Failed to deny account', 'error');
+    } finally {
+      setProcessingApproval(false);
+    }
+  };
+
   const [revokeDidInput, setRevokeDidInput] = useState('');
 
   const [mintTokenId, setMintTokenId] = useState('');
@@ -78,6 +123,11 @@ export default function AdminView({
   const [mintAssetType, setMintAssetType] = useState('CERTIFICATE');
   const [mintMetadata, setMintMetadata] = useState('{"issuer":"IIT Madras","classification":"VERIFIED"}');
   const [mintTargetOwnerDid, setMintTargetOwnerDid] = useState('');
+  const [mintTargetSearch, setMintTargetSearch] = useState('');
+  const [isMintTargetDropdownOpen, setIsMintTargetDropdownOpen] = useState(false);
+
+  const [auditPageSize, setAuditPageSize] = useState(10);
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
 
   const [allocTokenId, setAllocTokenId] = useState('');
   const [allocOwnerDid, setAllocOwnerDid] = useState('');
@@ -199,6 +249,7 @@ export default function AdminView({
       setAdminEmployeeId('');
       setAdminCompanyEmail('');
       refreshData();
+      setIdentitySubTab('directory');
     } catch (err) {
       const errMsg = err.message || '';
       const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
@@ -434,6 +485,24 @@ export default function AdminView({
     );
   });
 
+  const filteredTargetDids = didsList
+    .filter(d => d.status !== 'REVOKED')
+    .filter(d => {
+      if (!mintTargetSearch.trim()) return true;
+      const q = mintTargetSearch.toLowerCase().trim();
+      return (
+        d.did.toLowerCase().includes(q) ||
+        (d.name || '').toLowerCase().includes(q) ||
+        (d.role || '').toLowerCase().includes(q) ||
+        (d.department || '').toLowerCase().includes(q)
+      );
+    });
+
+  const totalAuditPages = Math.ceil(filteredAudits.length / auditPageSize) || 1;
+  const safeAuditPage = Math.min(Math.max(1, auditCurrentPage), totalAuditPages);
+  const startAuditIdx = (safeAuditPage - 1) * auditPageSize;
+  const paginatedAudits = filteredAudits.slice(startAuditIdx, startAuditIdx + auditPageSize);
+
   // Tab Breadcrumb text mapping
   const getTabLabel = (tabKey) => {
     switch (tabKey) {
@@ -510,6 +579,19 @@ export default function AdminView({
                 <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
               </svg>
               <span>Identities</span>
+              {pendingAccounts.length > 0 && (
+                <span style={{
+                  background: '#d97706',
+                  color: '#ffffff',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: '10px',
+                  marginLeft: 'auto'
+                }}>
+                  {pendingAccounts.length}
+                </span>
+              )}
             </button>
 
             <button
@@ -677,88 +759,149 @@ export default function AdminView({
           </div>
         </div>
 
-        {/* 3 Metric Cards Row (Identities, Assets, Events) */}
-        <div className="admin-metrics-row">
-          {/* Card 1: Active identities */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('identities')}
-            title="Click to view Identities"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
-                  <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
-                  <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
-                  <path d="M2 12a10 10 0 0 1 18-6"/>
-                  <path d="M2 16h.01"/>
-                  <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
-                  <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/>
-                  <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
-                  <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
+        {/* Action alert banner if pending accounts await review - ONLY in Overview */}
+        {activeTab === 'overview' && pendingAccounts.length > 0 && (
+          <div style={{
+            background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+            padding: '16px 20px',
+            border: '1px solid #fde68a',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                background: '#fef3c7',
+                color: '#b45309',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <polyline points="16 11 18 13 22 9"/>
                 </svg>
               </div>
-              <span className="metric-tag-badge">Live registry</span>
-            </div>
-
-            <div className="metric-number-big">
-              {didsList.length}
-            </div>
-            <div className="metric-title-text">Active identities</div>
-            <div className="metric-sub-text">
-              {didsList.filter(d => d.status !== 'REVOKED').length} verified on ledger
-            </div>
-          </div>
-
-          {/* Card 2: Digital assets */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('digital-assets')}
-            title="Click to view Digital Assets"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                  <polyline points="2 17 12 22 22 17"/>
-                  <polyline points="2 12 12 17 22 12"/>
-                </svg>
+              <div>
+                <div style={{ fontWeight: 800, color: '#92400e', fontSize: '0.95rem' }}>
+                  {pendingAccounts.length} Account Registration Request{pendingAccounts.length > 1 ? 's' : ''} Awaiting Manual Admin Approval
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#78350f', marginTop: '2px' }}>
+                  New user applications require Administrator verification before credentials can be issued and ledger access activated.
+                </div>
               </div>
-              <span className="metric-tag-badge">Catalog</span>
             </div>
-
-            <div className="metric-number-big">
-              {nftsList.length}
-            </div>
-            <div className="metric-title-text">Digital assets</div>
-            <div className="metric-sub-text">
-              {nftsList.filter(n => !!n.ownerDID).length} currently allocated
-            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              style={{ background: '#d97706', borderColor: '#d97706', fontWeight: 700, whiteSpace: 'nowrap' }}
+              onClick={() => {
+                setActiveTab('identities');
+                setIdentitySubTab('pending');
+              }}
+            >
+              Review &amp; Approve Now →
+            </button>
           </div>
+        )}
 
-          {/* Card 3: Audit events */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('audit-trail')}
-            title="Click to view Audit Trail"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-green">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
+        {/* 3 Metric Cards Row (Identities, Assets, Events) - Visible ONLY in Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="admin-metrics-row">
+            {/* Card 1: Active identities */}
+            <div
+              className="admin-metric-card"
+              onClick={() => {
+                setActiveTab('identities');
+                setIdentitySubTab('directory');
+              }}
+              title="Click to view Identities Directory"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+                    <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+                    <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+                    <path d="M2 12a10 10 0 0 1 18-6"/>
+                    <path d="M2 16h.01"/>
+                    <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+                    <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/>
+                    <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+                    <path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Live registry</span>
               </div>
-              <span className="metric-tag-badge">Fabric Ledger</span>
+
+              <div className="metric-number-big">
+                {didsList.length}
+              </div>
+              <div className="metric-title-text">Active identities</div>
+              <div className="metric-sub-text">
+                {didsList.filter(d => d.status !== 'REVOKED').length} verified on ledger
+              </div>
             </div>
 
-            <div className="metric-number-big">
-              {auditList.length.toLocaleString()}
+            {/* Card 2: Digital assets */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('digital-assets')}
+              title="Click to view Digital Assets"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Catalog</span>
+              </div>
+
+              <div className="metric-number-big">
+                {nftsList.length}
+              </div>
+              <div className="metric-title-text">Digital assets</div>
+              <div className="metric-sub-text">
+                {nftsList.filter(n => !!n.ownerDID).length} currently allocated
+              </div>
             </div>
-            <div className="metric-title-text">Audit events</div>
-            <div className="metric-sub-text">All event records retained</div>
+
+            {/* Card 3: Audit events */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('audit-trail')}
+              title="Click to view Audit Trail"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-green">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Fabric Ledger</span>
+              </div>
+
+              <div className="metric-number-big">
+                {auditList.length.toLocaleString()}
+              </div>
+              <div className="metric-title-text">Audit events</div>
+              <div className="metric-sub-text">All event records retained</div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tab Body Contents */}
         <div className="admin-tab-body">
@@ -786,7 +929,10 @@ export default function AdminView({
                   <button
                     type="button"
                     className="admin-btn-primary-action"
-                    onClick={() => setActiveTab('identities')}
+                    onClick={() => {
+                      setActiveTab('identities');
+                      setIdentitySubTab('create');
+                    }}
                   >
                     <div className="admin-action-btn-left">
                       <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span>
@@ -926,7 +1072,230 @@ export default function AdminView({
               TAB 1: IDENTITIES
               ────────────────────────────────────────────────────────── */}
           {activeTab === 'identities' && (
-            <div className="card-grid">
+            <div className="admin-identities-container" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              {/* Sub-tabs Navigation: Shows only one view at a time under Identities */}
+              <div className="identities-subtabs-nav">
+                <button
+                  type="button"
+                  className={`identities-subtab-btn ${identitySubTab === 'directory' ? 'active' : ''}`}
+                  onClick={() => setIdentitySubTab('directory')}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  <span>Identity Directory</span>
+                  <span className="identities-subtab-badge">{didsList.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`identities-subtab-btn ${identitySubTab === 'pending' ? 'active' : ''}`}
+                  onClick={() => setIdentitySubTab('pending')}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <polyline points="16 11 18 13 22 9"/>
+                  </svg>
+                  <span>Pending Account Registrations</span>
+                  {pendingAccounts.length > 0 ? (
+                    <span className="identities-subtab-badge badge-amber">{pendingAccounts.length} Pending</span>
+                  ) : (
+                    <span className="identities-subtab-badge">0</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className={`identities-subtab-btn ${identitySubTab === 'create' ? 'active' : ''}`}
+                  onClick={() => setIdentitySubTab('create')}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <line x1="19" y1="8" x2="19" y2="14"/>
+                    <line x1="22" y1="11" x2="16" y2="11"/>
+                  </svg>
+                  <span>Create Account &amp; Provision Identity</span>
+                  <span className="identities-subtab-badge badge-blue">Admin Authority</span>
+                </button>
+              </div>
+
+              {/* ──────────────────────────────────────────────────────────
+                  SUB-TAB 2: PENDING ACCOUNT REGISTRATIONS
+                  ────────────────────────────────────────────────────────── */}
+              {identitySubTab === 'pending' && (
+                <div
+                  className="glass-card"
+                style={{
+                  border: pendingAccounts.length > 0 ? '1px solid #fde68a' : '1px solid #e2e8f0',
+                  background: pendingAccounts.length > 0 ? '#fffdf5' : '#ffffff',
+                  boxShadow: pendingAccounts.length > 0 ? '0 10px 25px -5px rgba(217, 119, 6, 0.1)' : undefined
+                }}
+              >
+                <div className="flex-between card-header-row mb-2">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: pendingAccounts.length > 0 ? '#fef3c7' : '#ecfdf5',
+                      color: pendingAccounts.length > 0 ? '#b45309' : '#059669',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <polyline points="16 11 18 13 22 9"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Pending Account Registrations</span>
+                        <span style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          background: pendingAccounts.length > 0 ? '#fef3c7' : '#e2e8f0',
+                          color: pendingAccounts.length > 0 ? '#92400e' : '#475569',
+                          border: `1px solid ${pendingAccounts.length > 0 ? '#fde68a' : '#cbd5e1'}`
+                        }}>
+                          {pendingAccounts.length} Pending Approval
+                        </span>
+                      </h3>
+                      <p className="card-desc" style={{ margin: '3px 0 0 0' }}>
+                        Manual verification queue: The Administrator is the sole authority who approves or denies new account creations.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="badge badge-accent">Admin Manual Approval</span>
+                </div>
+
+                {pendingAccounts.length > 0 ? (
+                  <div style={{ marginTop: '14px' }}>
+                    <div className="table-responsive">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Applicant</th>
+                            <th>DID Identifier</th>
+                            <th>Role Requested</th>
+                            <th>Category &amp; Proof</th>
+                            <th>Department</th>
+                            <th style={{ textAlign: 'center', width: '200px' }}>Admin Decision</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pendingAccounts.map((account) => {
+                            const proofStr = account.idProofNumber ? `${account.idProofType || 'Gov ID'}: ${account.idProofNumber}` : 'ID Document Attached';
+                            const orgStr = account.orgProof?.serviceId ? `Service ID: ${account.orgProof.serviceId}`
+                              : account.orgProof?.employeeId ? `Emp ID: ${account.orgProof.employeeId}`
+                              : account.orgProof?.orgName ? account.orgProof.orgName
+                              : account.department || 'General';
+
+                            return (
+                              <tr key={account.did} style={{ background: '#ffffff' }}>
+                                <td>
+                                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{account.name || account.username}</div>
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>@{account.username}</div>
+                                </td>
+                                <td>
+                                  <code style={{ fontSize: '0.74rem' }}>{account.did}</code>
+                                </td>
+                                <td>
+                                  <span className={`role-pill role-${(account.role || 'USER').toLowerCase()}`}>
+                                    {account.role}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155' }}>
+                                    {account.userCategory || 'DEFENCE'}
+                                  </div>
+                                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                    {proofStr}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: '0.75rem', color: '#334155' }}>{account.department || 'Avionics Division'}</div>
+                                  <div style={{ fontSize: '0.7rem', color: '#0284c7' }}>{orgStr}</div>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-primary"
+                                      style={{
+                                        background: '#16a34a',
+                                        borderColor: '#16a34a',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontWeight: 700,
+                                        padding: '5px 12px'
+                                      }}
+                                      onClick={() => handleApproveAccount(account.did)}
+                                      disabled={processingApproval}
+                                      title="Approve applicant and issue active DID on ledger"
+                                    >
+                                      <span>✓ Approve</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-outline"
+                                      style={{
+                                        color: '#dc2626',
+                                        borderColor: '#dc2626',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontWeight: 700,
+                                        padding: '5px 10px'
+                                      }}
+                                      onClick={() => setDenyingDid(account.did)}
+                                      disabled={processingApproval}
+                                      title="Deny registration request"
+                                    >
+                                      <span>✕ Deny</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '14px 18px',
+                    borderRadius: '8px',
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    color: '#166534',
+                    fontSize: '0.84rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '10px'
+                  }}>
+                    <span>✓</span>
+                    <span>All account registration requests have been reviewed. Zero pending approvals.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ──────────────────────────────────────────────────────────
+                SUB-TAB 3: CREATE ACCOUNT & PROVISION IDENTITY
+                ────────────────────────────────────────────────────────── */}
+            {identitySubTab === 'create' && (
               <div className="glass-card">
                 <div className="flex-between card-header-row mb-2">
                   <div>
@@ -1242,9 +1611,42 @@ export default function AdminView({
                   </button>
                 </form>
               </div>
+            )}
 
-              {/* DIDs Directory */}
+            {/* ──────────────────────────────────────────────────────────
+                SUB-TAB 1: IDENTITY DIRECTORY
+                ────────────────────────────────────────────────────────── */}
+            {identitySubTab === 'directory' && (
               <div className="glass-card">
+                {/* Notice banner if pending requests await approval */}
+                {pendingAccounts.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    background: '#fffdf5',
+                    border: '1px solid #fde68a',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    marginBottom: '14px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem', color: '#92400e', fontWeight: 600 }}>
+                      <span>⚠️</span>
+                      <span>{pendingAccounts.length} new account registration request{pendingAccounts.length > 1 ? 's' : ''} awaiting manual Administrator review.</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-primary"
+                      style={{ background: '#d97706', borderColor: '#d97706', fontSize: '0.74rem', padding: '4px 12px', fontWeight: 700 }}
+                      onClick={() => setIdentitySubTab('pending')}
+                    >
+                      Review Pending Registrations ({pendingAccounts.length}) →
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex-between card-header-row mb-3">
                   <h3 className="card-title">Identity Directory ({didsList.length})</h3>
                   <div className="flex-gap">
@@ -1282,12 +1684,54 @@ export default function AdminView({
                             <td><code>{item.did}</code></td>
                             <td><span className={`role-pill role-${(item.role || '').toLowerCase()}`}>{item.role}</span></td>
                             <td>
-                              <span className={`status-pill ${item.status === 'REVOKED' ? 'status-revoked' : 'status-active'}`}>
-                                {item.status || 'ACTIVE'}
+                              <span style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                background: item.status === 'REVOKED' || item.status === 'DENIED' ? '#fee2e2' : item.status === 'PENDING_APPROVAL' ? '#fef3c7' : '#dcfce7',
+                                color: item.status === 'REVOKED' || item.status === 'DENIED' ? '#dc2626' : item.status === 'PENDING_APPROVAL' ? '#92400e' : '#16a34a',
+                                border: `1px solid ${item.status === 'REVOKED' || item.status === 'DENIED' ? '#fecaca' : item.status === 'PENDING_APPROVAL' ? '#fde68a' : '#bbf7d0'}`
+                              }}>
+                                {item.status === 'PENDING_APPROVAL' ? 'PENDING APPROVAL' : (item.status || 'ACTIVE')}
                               </span>
                             </td>
                             <td>
-                              {item.status === 'REVOKED' ? (
+                              {item.status === 'PENDING_APPROVAL' ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-primary"
+                                    style={{ background: '#16a34a', borderColor: '#16a34a', fontSize: '0.72rem', padding: '3px 8px' }}
+                                    onClick={() => handleApproveAccount(item.did)}
+                                    disabled={processingApproval}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-outline"
+                                    style={{ color: '#dc2626', borderColor: '#dc2626', fontSize: '0.72rem', padding: '3px 8px' }}
+                                    onClick={() => setDenyingDid(item.did)}
+                                    disabled={processingApproval}
+                                  >
+                                    Deny
+                                  </button>
+                                </div>
+                              ) : item.status === 'DENIED' ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span className="text-muted text-xs">DENIED</span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-outline"
+                                    style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                                    onClick={() => handleApproveAccount(item.did)}
+                                    title="Re-evaluate and approve"
+                                  >
+                                    Re-approve
+                                  </button>
+                                </div>
+                              ) : item.status === 'REVOKED' ? (
                                 <span className="text-muted text-xs">REVOKED</span>
                               ) : item.role === 'ADMIN' ? (
                                 <span className="text-muted text-xs font-mono font-bold" title="Admin role is protected and cannot be changed">
@@ -1312,8 +1756,9 @@ export default function AdminView({
                   </table>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
           {/* ──────────────────────────────────────────────────────────
               TAB 2: REVOKE IDENTITY
@@ -1448,21 +1893,188 @@ export default function AdminView({
                     </select>
                   </div>
 
-                  <div className="form-group">
-                    <label className="label">Target Owner DID (Optional Instant Allocation):</label>
-                    <select
-                      className="input"
-                      value={mintTargetOwnerDid}
-                      onChange={(e) => setMintTargetOwnerDid(e.target.value)}
-                    >
-                      <option value="">-- Mint as Unassigned Pool Asset --</option>
-                      {didsList.filter(d => d.status !== 'REVOKED').map((d, idx) => (
-                        <option key={idx} value={d.did}>
-                          {d.did} [{d.role}]
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted mt-1">Select user to allocate instantly, or leave blank to mint into unassigned pool.</p>
+                  <div className="form-group" style={{ position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label className="label" style={{ margin: 0 }}>Target Owner DID (Optional Instant Allocation):</label>
+                      {mintTargetOwnerDid && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMintTargetOwnerDid('');
+                            setMintTargetSearch('');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#dc2626',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            padding: '0 4px'
+                          }}
+                        >
+                          Clear Selection
+                        </button>
+                      )}
+                    </div>
+
+                    {mintTargetOwnerDid ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          background: '#f0fdf4',
+                          border: '1px solid #86efac',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Target Selected:</span>
+                          <code style={{ color: '#15803d', fontWeight: 700 }}>{mintTargetOwnerDid}</code>
+                          {(() => {
+                            const found = didsList.find(d => d.did === mintTargetOwnerDid);
+                            return found ? (
+                              <span className="type-pill" style={{ fontSize: '0.68rem' }}>{found.role}</span>
+                            ) : null;
+                          })()}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMintTargetOwnerDid('');
+                            setMintTargetSearch('');
+                          }}
+                          style={{
+                            background: '#fee2e2',
+                            border: '1px solid #fecaca',
+                            color: '#991b1b',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            padding: '2px 8px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            className="input"
+                            placeholder="Type to search DID, name, role (e.g. USER001, Priya, MANAGER)..."
+                            value={mintTargetSearch}
+                            onChange={(e) => {
+                              setMintTargetSearch(e.target.value);
+                              setIsMintTargetDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsMintTargetDropdownOpen(true)}
+                          />
+                          {mintTargetSearch && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMintTargetSearch('');
+                              }}
+                              style={{
+                                position: 'absolute',
+                                right: '10px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'none',
+                                border: 'none',
+                                color: '#94a3b8',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        {isMintTargetDropdownOpen && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              zIndex: 50,
+                              background: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '8px',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
+                              maxHeight: '220px',
+                              overflowY: 'auto',
+                              marginTop: '4px'
+                            }}
+                          >
+                            <div
+                              onClick={() => {
+                                setMintTargetOwnerDid('');
+                                setMintTargetSearch('');
+                                setIsMintTargetDropdownOpen(false);
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                borderBottom: '1px solid #f1f5f9',
+                                cursor: 'pointer',
+                                fontSize: '0.78rem',
+                                color: '#64748b',
+                                fontStyle: 'italic',
+                                background: '#f8fafc'
+                              }}
+                            >
+                              -- Mint as Unassigned Pool Asset --
+                            </div>
+                            {filteredTargetDids.length === 0 ? (
+                              <div style={{ padding: '10px 12px', fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center' }}>
+                                No matching registered DIDs found
+                              </div>
+                            ) : (
+                              filteredTargetDids.map((d, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => {
+                                    setMintTargetOwnerDid(d.did);
+                                    setMintTargetSearch('');
+                                    setIsMintTargetDropdownOpen(false);
+                                  }}
+                                  style={{
+                                    padding: '8px 12px',
+                                    borderBottom: '1px solid #f8fafc',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    transition: 'background 0.15s ease'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
+                                >
+                                  <div>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
+                                      {d.did}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                      {d.name || d.did.split(':').pop()} {d.department ? `· ${d.department}` : ''}
+                                    </div>
+                                  </div>
+                                  <span className="type-pill" style={{ fontSize: '0.68rem' }}>{d.role}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted mt-1">Search user by DID, name or role to allocate instantly, or leave unassigned.</p>
                   </div>
 
                   <div className="form-group">
@@ -1949,8 +2561,17 @@ export default function AdminView({
                 </button>
               </div>
 
-              <div className="table-responsive">
-                <table className="data-table">
+              <div className="table-responsive-fit">
+                <table className="data-table audit-table-fit">
+                  <colgroup>
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '17%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '13%' }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Timestamp</th>
@@ -1959,7 +2580,7 @@ export default function AdminView({
                       <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
-                      <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
+                      <th style={{ textAlign: 'center' }}>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1970,7 +2591,7 @@ export default function AdminView({
                         </td>
                       </tr>
                     ) : (
-                      filteredAudits.map((log, idx) => {
+                      paginatedAudits.map((log, idx) => {
                         const cat = getLogCategoryDetails(log);
                         return (
                           <tr key={log.eventId || idx} style={{ cursor: 'pointer' }} onClick={() => setSelectedAuditLog(log)}>
@@ -1995,11 +2616,11 @@ export default function AdminView({
                               </span>
                             </td>
                             <td><span className="action-pill">{log.action}</span></td>
-                            <td><code>{log.resourceId}</code></td>
+                            <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
                             <td>
-                              <code>{log.actorDID}</code>
-                              {log.actorName && <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{log.actorName} ({log.actorRole})</div>}
+                              <code className="audit-cell-truncate" title={log.actorDID}>{log.actorDID}</code>
+                              {log.actorName && <div className="audit-cell-truncate" style={{ fontSize: '0.72rem', color: '#64748b' }}>{log.actorName} ({log.actorRole})</div>}
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <button
@@ -2012,20 +2633,22 @@ export default function AdminView({
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '5px 12px',
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                  padding: '4px 8px',
                                   borderRadius: '6px',
                                   fontWeight: 600,
-                                  fontSize: '0.78rem',
+                                  fontSize: '0.74rem',
                                   borderColor: '#2563eb',
                                   color: '#2563eb',
                                   background: '#eff6ff',
                                   cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
+                                  width: '100%',
+                                  maxWidth: '110px'
                                 }}
                                 title="View audit details"
                               >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                   <polyline points="14 2 14 8 20 8"/>
                                   <line x1="16" y1="13" x2="8" y2="13"/>
@@ -2040,6 +2663,79 @@ export default function AdminView({
                     )}
                   </tbody>
                 </table>
+
+                {/* Audit Pagination Controls */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  fontSize: '0.78rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#64748b' }}>Show</span>
+                    <select
+                      className="input input-xs"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '4px' }}
+                      value={auditPageSize}
+                      onChange={(e) => {
+                        setAuditPageSize(Number(e.target.value));
+                        setAuditCurrentPage(1);
+                      }}
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span style={{ color: '#64748b' }}>entries per page</span>
+                    <span style={{ color: '#cbd5e1', margin: '0 4px' }}>|</span>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>
+                      {filteredAudits.length === 0
+                        ? '0 entries'
+                        : `Showing ${startAuditIdx + 1} to ${Math.min(startAuditIdx + auditPageSize, filteredAudits.length)} of ${filteredAudits.length} entries`}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage <= 1}
+                      onClick={() => setAuditCurrentPage(p => Math.max(1, p - 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage <= 1 ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage <= 1 ? 0.5 : 1
+                      }}
+                    >
+                      &larr; Prev
+                    </button>
+                    <span style={{ fontSize: '0.76rem', color: '#334155', fontWeight: 600, padding: '0 6px' }}>
+                      Page {safeAuditPage} of {totalAuditPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage >= totalAuditPages}
+                      onClick={() => setAuditCurrentPage(p => Math.min(totalAuditPages, p + 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage >= totalAuditPages ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage >= totalAuditPages ? 0.5 : 1
+                      }}
+                    >
+                      Next &rarr;
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -2053,6 +2749,66 @@ export default function AdminView({
           log={selectedAuditLog}
           onClose={() => setSelectedAuditLog(null)}
         />
+      )}
+
+      {/* Account Denial Reason Modal */}
+      {denyingDid && (
+        <div className="modal-backdrop" onClick={() => setDenyingDid(null)}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', padding: '24px', background: '#ffffff', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#dc2626', fontWeight: 800 }}>
+                Deny Account Registration
+              </h3>
+              <button
+                type="button"
+                className="btn-modal-close"
+                onClick={() => setDenyingDid(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.1rem' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: '0.84rem', color: '#475569', marginBottom: '16px', lineHeight: 1.5 }}>
+              You are about to deny the account registration for: <br />
+              <code style={{ fontSize: '0.8rem', color: '#0f172a', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px' }}>
+                {denyingDid}
+              </code>
+              <br />
+              Please provide the official reason for denial. This will be recorded on the blockchain audit ledger and displayed to the applicant if they attempt to sign in.
+            </p>
+            <form onSubmit={handleDenyAccount}>
+              <div className="form-group" style={{ marginBottom: '18px' }}>
+                <label className="label">Official Reason for Denial:</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={denialReasonInput}
+                  onChange={(e) => setDenialReasonInput(e.target.value)}
+                  placeholder="e.g. Invalid Service ID, Department clearance code mismatch, or unverified documents"
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setDenyingDid(null)}
+                  disabled={processingApproval}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                  disabled={processingApproval}
+                >
+                  {processingApproval ? 'Recording Denial...' : 'Confirm Denial & Block Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

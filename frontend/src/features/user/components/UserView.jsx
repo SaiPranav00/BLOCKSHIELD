@@ -343,76 +343,78 @@ export default function UserView({
           </div>
         </div>
 
-        {/* 3 Metric Cards Row (Identity, Assets, Pending request) */}
-        <div className="admin-metrics-row">
-          {/* Card 1: Identity */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('my-identity')}
-            title="Click to view Identity"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="9 12 11 14 15 10"/>
-                </svg>
+        {/* 3 Metric Cards Row (Identity, Assets, Pending request) - Visible ONLY in Overview */}
+        {activeTab === 'overview' && (
+          <div className="admin-metrics-row">
+            {/* Card 1: Identity */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('my-identity')}
+              title="Click to view Identity"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Verified</span>
               </div>
-              <span className="metric-tag-badge">Verified</span>
+
+              <div className="metric-number-big">1</div>
+              <div className="metric-title-text">Identity</div>
+              <div className="metric-sub-text">Active verified DID</div>
             </div>
 
-            <div className="metric-number-big">1</div>
-            <div className="metric-title-text">Identity</div>
-            <div className="metric-sub-text">Active verified DID</div>
-          </div>
-
-          {/* Card 2: Assets */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('my-assets')}
-            title="Click to view Assets"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                  <polyline points="2 17 12 22 22 17"/>
-                  <polyline points="2 12 12 17 22 12"/>
-                </svg>
+            {/* Card 2: Assets */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('my-assets')}
+              title="Click to view Assets"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Owned</span>
               </div>
-              <span className="metric-tag-badge">Owned</span>
-            </div>
 
-            <div className="metric-number-big">
-              {myAssets.length}
-            </div>
-            <div className="metric-title-text">Assets</div>
-            <div className="metric-sub-text">Assigned to your identity</div>
-          </div>
-
-          {/* Card 3: Pending request */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('transfer-requests')}
-            title="Click to view Transfer Requests"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#0d9488' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
+              <div className="metric-number-big">
+                {myAssets.length}
               </div>
-              <span className="metric-tag-badge">Action needed</span>
+              <div className="metric-title-text">Assets</div>
+              <div className="metric-sub-text">Assigned to your identity</div>
             </div>
 
-            <div className="metric-number-big">
-              {myRequests.filter(r => r.status === 'PENDING').length}
+            {/* Card 3: Pending request */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('transfer-requests')}
+              title="Click to view Transfer Requests"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#0d9488' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Action needed</span>
+              </div>
+
+              <div className="metric-number-big">
+                {myRequests.filter(r => r.status === 'PENDING').length}
+              </div>
+              <div className="metric-title-text">Pending request</div>
+              <div className="metric-sub-text">Awaiting your response</div>
             </div>
-            <div className="metric-title-text">Pending request</div>
-            <div className="metric-sub-text">Awaiting your response</div>
           </div>
-        </div>
+        )}
 
         {/* Workspace Body Content */}
         <div className="admin-tab-body">
@@ -670,34 +672,38 @@ export default function UserView({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-3">
+                <div className="grid grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.25rem' }}>
                   {filteredMyAssets.map((asset, index) => {
                     const isPending = asset.status === 'TRANSFER_PENDING';
                     return (
-                      <div key={asset.tokenId || index} className="asset-card">
-                        <div className="asset-header">
-                          <span className="type-pill">{asset.assetType || 'EQUIPMENT'}</span>
-                          <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : isPending ? 'status-pending' : 'status-revoked'}`}>
-                            {asset.status || 'ACTIVE'}
-                          </span>
+                      <div key={asset.tokenId || index} className="asset-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.35rem', borderRadius: '14px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+                        <div>
+                          <div className="asset-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                            <span className="type-pill">{asset.assetType || 'EQUIPMENT'}</span>
+                            <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : isPending ? 'status-pending' : 'status-revoked'}`}>
+                              {asset.status || 'ACTIVE'}
+                            </span>
+                          </div>
+                          <h4 className="asset-title" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: '#0f172a' }}>{asset.assetName || asset.name}</h4>
+                          <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Token: <code>{asset.tokenId}</code></p>
+                          {asset.assetId && <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Asset Registry ID: <code>{asset.assetId}</code></p>}
+                          <div className="asset-meta text-xs my-2" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                            <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                            <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Custodian:</strong> <code style={{ fontSize: '0.72rem' }}>{asset.custodian || asset.ownerDID}</code></p>
+                            <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Department:</strong> <span>{asset.department || 'R&D'}</span></p>
+                          </div>
                         </div>
-                        <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                        <p className="asset-id">Token: <code>{asset.tokenId}</code></p>
-                        {asset.assetId && <p className="asset-id">Asset Registry ID: <code>{asset.assetId}</code></p>}
-                        <div className="asset-meta text-xs my-2">
-                          <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                          <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
-                          <p><strong>Department:</strong> {asset.department || 'R&D'}</p>
-                        </div>
-                        <div className="flex-between mt-3">
+                        <div className="flex-between mt-3" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
                           <button
                             className="btn btn-xs btn-secondary"
+                            style={{ flex: 1 }}
                             onClick={() => onViewProvenance(asset.tokenId)}
                           >
                             View Provenance
                           </button>
                           <button
                             className="btn btn-xs btn-outline"
+                            style={{ flex: 1 }}
                             disabled={isPending}
                             onClick={() => {
                               setTransTokenId(asset.tokenId);

@@ -33,7 +33,14 @@ function ForensicEvidenceModalContent({ log, onClose }) {
         const num = Number(ts);
         if (!isNaN(num)) {
           const date = num > 10000000000 ? new Date(num) : new Date(num * 1000);
-          return date.toLocaleString();
+          return date.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
         }
         return String(ts);
       }
@@ -84,7 +91,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
     consensusStatus: 'FINAL_COMMITTED'
   };
 
-  // Derive forensic telemetry data with bulletproof fallback chains
+  // Derive forensic telemetry data with robust fallback chains
   const who = {
     actorDID: log?.fiveWs?.who?.actorDID || log?.actorDID || 'did:sih26125:ANONYMOUS',
     actorName: log?.fiveWs?.who?.actorName || log?.actorName || (log?.actorDID?.includes('ADMIN') ? 'Marcus Chen' : log?.actorDID?.includes('MANAGER') ? 'Elena Vance' : log?.actorDID?.includes('AUDITOR') ? 'Priya Nair' : 'Vikram Rao'),
@@ -123,30 +130,38 @@ function ForensicEvidenceModalContent({ log, onClose }) {
   };
 
   const how = {
-    authMechanism: log?.fiveWs?.how?.authMechanism || 'Cryptographic Mutual TLS (mTLS) + RSA-2048 Private Key Digital Signature',
-    consensus: log?.fiveWs?.how?.consensus || 'Raft Distributed Consensus (Orderer Node 1)',
+    authMechanism: log?.fiveWs?.how?.authMechanism || 'Cryptographic Mutual TLS (mTLS) + RSA-2048 Digital Signature',
+    consensus: log?.fiveWs?.how?.consensus || 'Raft Distributed Consensus (Orderer Node 01)',
     status: log?.fiveWs?.how?.status || (log?.result === 'ALLOWED' ? 'SUCCESS_COMMITTED' : 'POLICY_BLOCKED'),
-    endorsementPolicy: log?.fiveWs?.how?.endorsementPolicy || 'Out-of-band Peer Endorsement Satisfied'
+    endorsementPolicy: log?.fiveWs?.how?.endorsementPolicy || 'Out-of-band Peer Endorsement Satisfied (Org1/Org2)'
   };
 
   return (
     <div
       className="modal-backdrop"
       onClick={handleClose}
-      style={{ zIndex: 9999, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)' }}
+      style={{
+        zIndex: 9999,
+        background: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}
     >
       <div
         className="modal-container"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: '860px',
-          width: '94%',
+          maxWidth: '880px',
+          width: '95%',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.4)',
           border: '1px solid #cbd5e1',
-          borderRadius: '14px',
+          borderRadius: '16px',
           overflow: 'hidden',
           background: '#ffffff'
         }}
@@ -155,20 +170,20 @@ function ForensicEvidenceModalContent({ log, onClose }) {
         <div
           className="modal-header"
           style={{
-            padding: '16px 22px',
-            background: isDenied ? '#fef2f2' : '#f8fafc',
-            borderBottom: `2px solid ${isDenied ? '#f87171' : '#3b82f6'}`,
+            padding: '16px 24px',
+            background: isDenied ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+            borderBottom: `2px solid ${isDenied ? '#ef4444' : '#3b82f6'}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '10px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
                 background: isDenied ? '#fee2e2' : '#dbeafe',
                 display: 'flex',
                 alignItems: 'center',
@@ -177,22 +192,22 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                 flexShrink: 0
               }}
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 <polyline points="9 12 11 14 15 10"/>
               </svg>
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 className="modal-title" style={{ fontSize: '1.18rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                <h3 className="modal-title" style={{ fontSize: '1.22rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                   Audit Log Details
                 </h3>
                 <span
                   style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    padding: '2.5px 9px',
+                    borderRadius: '5px',
                     background: isDenied ? '#dc2626' : '#16a34a',
                     color: '#ffffff',
                     letterSpacing: '0.04em'
@@ -202,10 +217,10 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                 </span>
                 <span
                   style={{
-                    fontSize: '0.72rem',
+                    fontSize: '0.74rem',
                     fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    padding: '2.5px 9px',
+                    borderRadius: '5px',
                     background: '#e2e8f0',
                     color: '#334155'
                   }}
@@ -214,7 +229,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                 </span>
               </div>
               <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#64748b' }}>
-                Event ID: <code>{log?.eventId || 'EVT-SEC-001'}</code> · Fabric Channel: <strong>{where.channel}</strong>
+                Event ID: <code>{log?.eventId || 'EVT-SEC-001'}</code> · Channel: <strong>{where.channel}</strong> · Timestamp: <strong>{when.formatted}</strong>
               </p>
             </div>
           </div>
@@ -223,7 +238,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
             className="modal-close-btn"
             onClick={handleClose}
             style={{
-              fontSize: '1.25rem',
+              fontSize: '1.3rem',
               cursor: 'pointer',
               border: 'none',
               background: 'transparent',
@@ -242,174 +257,281 @@ function ForensicEvidenceModalContent({ log, onClose }) {
         </div>
 
         {/* Modal Body */}
-        <div className="modal-body" style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, background: '#ffffff' }}>
+        <div className="modal-body" style={{ padding: '22px 26px', overflowY: 'auto', flex: 1, background: '#ffffff' }}>
           
-          {/* Section Heading */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#475569' }}>
-              Audit Verification Details
-            </span>
-            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-              Verified transaction metadata recorded on sovereign ledger
-            </span>
+          {/* 1. TOP EXECUTIVE EVENT SUMMARY BANNER */}
+          <div
+            style={{
+              background: isDenied ? '#fff5f5' : '#f0fdf4',
+              border: `1px solid ${isDenied ? '#fecaca' : '#bbf7d0'}`,
+              borderRadius: '12px',
+              padding: '14px 18px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px'
+            }}
+          >
+            <div style={{ color: isDenied ? '#dc2626' : '#16a34a', marginTop: '2px', flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: isDenied ? '#991b1b' : '#166534' }}>
+                  Executive Incident &amp; Operation Summary
+                </span>
+                <span style={{ fontSize: '0.72rem', color: isDenied ? '#b91c1c' : '#15803d', fontWeight: 600 }}>
+                  Consensus Committed · Tamper-Evident
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.86rem', color: '#1e293b', lineHeight: 1.6 }}>
+                {what.summary}
+              </p>
+            </div>
           </div>
 
-          {/* Evidence Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+          {/* 2. FOUR BALANCED INVESTIGATION QUADRANTS (2x2 GRID) */}
+          <div className="dossier-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '16px', marginBottom: '20px' }}>
             
-            {/* Actor & Identity */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', borderLeft: '4px solid #3b82f6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e3a8a', textTransform: 'uppercase' }}>Actor &amp; Identity</span>
+            {/* QUADRANT 1: ACTOR & AUTHORITY (WHO) */}
+            <div
+              className="dossier-card"
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderLeft: '4px solid #3b82f6',
+                borderRadius: '12px',
+                padding: '16px 18px',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.03)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    Actor &amp; Authority
+                  </span>
+                </div>
+                <span className="type-pill" style={{ fontSize: '0.7rem' }}>{who.actorRole}</span>
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Full Name:</strong> {who.actorName}</div>
-                <div><strong>DID:</strong> <code style={{ fontSize: '0.72rem' }}>{who.actorDID}</code></div>
-                <div><strong>Role:</strong> <span className="type-pill" style={{ fontSize: '0.7rem' }}>{who.actorRole}</span></div>
-                <div><strong>Department:</strong> {who.department}</div>
-                <div style={{ color: '#0369a1', fontSize: '0.72rem', marginTop: '2px' }}>
-                  <strong>Clearance:</strong> {who.clearance}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Identity Holder:</span>
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>{who.actorName}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Decentralized ID:</span>
+                  <code style={{ fontSize: '0.72rem', color: '#0369a1', wordBreak: 'break-all' }}>{who.actorDID}</code>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Department:</span>
+                  <span style={{ color: '#334155' }}>{who.department}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Clearance Level:</span>
+                  <span style={{ color: '#1d4ed8', fontWeight: 600 }}>{who.clearance}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Identity Certificate:</span>
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ X.509 Validated</span>
                 </div>
               </div>
             </div>
 
-            {/* Operation & Target Resource */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', borderLeft: '4px solid #10b981' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#065f46', textTransform: 'uppercase' }}>Operation &amp; Target Resource</span>
+            {/* QUADRANT 2: OPERATION & TARGET (WHAT) */}
+            <div
+              className="dossier-card"
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderLeft: '4px solid #10b981',
+                borderRadius: '12px',
+                padding: '16px 18px',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.03)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    Operation &amp; Target
+                  </span>
+                </div>
+                <span className="action-pill" style={{ fontSize: '0.72rem' }}>{what.action}</span>
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Ledger Action:</strong> <span className="action-pill" style={{ fontSize: '0.72rem' }}>{what.action}</span></div>
-                <div><strong>Target Resource:</strong> <code style={{ fontSize: '0.72rem' }}>{what.resourceId}</code></div>
-                <div><strong>Target Type:</strong> {what.resourceType}</div>
-                <div><strong>Result:</strong> <span style={{ fontWeight: 700, color: isDenied ? '#dc2626' : '#16a34a' }}>{what.result}</span></div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                  State delta committed to ledger.
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Target Resource ID:</span>
+                  <code style={{ fontSize: '0.74rem', color: '#047857', fontWeight: 700 }}>{what.resourceId}</code>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Resource Classification:</span>
+                  <span style={{ color: '#334155' }}>{what.resourceType}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Execution Verdict:</span>
+                  <span style={{ fontWeight: 800, color: isDenied ? '#dc2626' : '#16a34a' }}>{what.result}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Ledger State Delta:</span>
+                  <span style={{ color: '#334155' }}>Final State Committed</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Chaincode Target:</span>
+                  <code style={{ fontSize: '0.72rem' }}>{metadata.chaincode}</code>
                 </div>
               </div>
             </div>
 
-            {/* Timestamp & Ledger Sequence */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', borderLeft: '4px solid #f59e0b' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#92400e', textTransform: 'uppercase' }}>Timestamp &amp; Ledger Sequence</span>
+            {/* QUADRANT 3: TEMPORAL & SPATIAL PROVENANCE (WHEN & WHERE) */}
+            <div
+              className="dossier-card"
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderLeft: '4px solid #f59e0b',
+                borderRadius: '12px',
+                padding: '16px 18px',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.03)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    Provenance &amp; Location
+                  </span>
+                </div>
+                <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>{blockNum}</span>
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Date &amp; Time:</strong> {when.formatted}</div>
-                <div><strong>Ledger Block:</strong> <span className="badge badge-primary">{blockNum}</span></div>
-                <div><strong>Epoch Timestamp:</strong> <code>{when.epoch}s</code></div>
-                <div><strong>Commit Latency:</strong> ~{when.latency} (Instant finality)</div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                  Monotonically sequenced in block height.
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Commit Timestamp:</span>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{when.formatted}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Monotonic Block Height:</span>
+                  <span>{blockNum} (Epoch: <code>{when.epoch}s</code>)</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Sovereign Facility:</span>
+                  <span style={{ color: '#334155', textAlign: 'right' }}>{where.facility}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Operational Unit:</span>
+                  <span style={{ color: '#334155' }}>{where.location}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Consensus Finality:</span>
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>~{when.latency} (Instant finality)</span>
                 </div>
               </div>
             </div>
 
-            {/* Facility & Network Node */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', borderLeft: '4px solid #8b5cf6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#5b21b6', textTransform: 'uppercase' }}>Facility &amp; Network Node</span>
-              </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Facility:</strong> {where.facility}</div>
-                <div><strong>Laboratory:</strong> {where.location}</div>
-                <div><strong>Gateway Node:</strong> {where.gateway}</div>
-                <div><strong>Channel:</strong> <code>{where.channel}</code></div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                  Anchored across Bharat Electronics sovereign nodes.
+            {/* QUADRANT 4: POLICY, GOVERNANCE & CONSENSUS (WHY & HOW) */}
+            <div
+              className="dossier-card"
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderLeft: '4px solid #8b5cf6',
+                borderRadius: '12px',
+                padding: '16px 18px',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.03)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#5b21b6', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    Policy &amp; Security Consensus
+                  </span>
                 </div>
+                <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 700 }}>✓ Verified</span>
               </div>
-            </div>
 
-            {/* Policy & Operational Purpose */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', borderLeft: '4px solid #06b6d4' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#155e75', textTransform: 'uppercase' }}>Policy &amp; Operational Purpose</span>
-              </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Justification:</strong> {why.justification}</div>
-                <div><strong>Policy Enforced:</strong> <code style={{ color: '#0369a1', fontSize: '0.72rem' }}>{why.policyRule}</code></div>
-                <div><strong>Standard:</strong> {why.complianceStandard}</div>
-                <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '2px' }}>
-                  Zero-Trust compliance validated.
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Enforced Policy:</span>
+                  <code style={{ fontSize: '0.72rem', color: '#0369a1' }}>{why.policyRule}</code>
                 </div>
-              </div>
-            </div>
-
-            {/* Security & Consensus Proof */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '14px', borderLeft: '4px solid #ec4899' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#9d174d', textTransform: 'uppercase' }}>Security &amp; Consensus Proof</span>
-              </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div><strong>Auth Protocol:</strong> {how.authMechanism}</div>
-                <div><strong>Consensus:</strong> {how.consensus}</div>
-                <div><strong>Endorsement:</strong> <span style={{ color: '#16a34a', fontWeight: 600 }}>Verified (Org1/Org2)</span></div>
-                <div><strong>Ledger Commit:</strong> {how.status}</div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                  Tamper-evident SHA-256 state proof.
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Compliance Standard:</span>
+                  <span style={{ color: '#334155', textAlign: 'right' }}>{why.complianceStandard}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Auth Protocol:</span>
+                  <span style={{ color: '#334155', textAlign: 'right' }}>{how.authMechanism}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Consensus Algorithm:</span>
+                  <span style={{ color: '#334155' }}>{how.consensus}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                  <span style={{ color: '#64748b', fontWeight: 600 }}>Peer Endorsement:</span>
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>Org1 / Org2 Endorsed</span>
                 </div>
               </div>
             </div>
 
           </div>
 
-          {/* Event Narrative Synthesis Box */}
-          <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Event Summary &amp; State Verification
-              </span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.84rem', color: '#1e293b', lineHeight: 1.65 }}>
-              {what.summary}
-            </p>
-          </div>
-
-          {/* Cryptographic Transaction Hash Box */}
-          <div style={{ background: '#0f172a', color: '#f8fafc', borderRadius: '10px', padding: '14px 16px', marginBottom: '16px' }}>
+          {/* 3. CRYPTOGRAPHIC PROOF & SHA-256 HASH BOX */}
+          <div
+            style={{
+              background: '#0f172a',
+              color: '#f8fafc',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: '18px'
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                SHA-256 Blockchain Transaction Hash
+              <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                SHA-256 Blockchain Transaction Cryptographic Evidence
               </span>
               <button
                 type="button"
                 onClick={handleCopyHash}
                 style={{
-                  background: copiedHash ? '#16a34a' : 'rgba(255,255,255,0.12)',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: copiedHash ? '#16a34a' : 'rgba(255,255,255,0.14)',
+                  border: '1px solid rgba(255,255,255,0.22)',
                   color: '#ffffff',
-                  fontSize: '0.72rem',
+                  fontSize: '0.74rem',
                   fontWeight: 600,
-                  padding: '4px 10px',
+                  padding: '4px 12px',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '5px',
                   transition: 'all 0.15s ease'
                 }}
               >
                 {copiedHash ? '✓ Copied to Clipboard' : 'Copy Hash'}
               </button>
             </div>
-            <code style={{ fontSize: '0.76rem', color: '#38bdf8', wordBreak: 'break-all', display: 'block', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: '6px', lineHeight: 1.4 }}>
+            
+            <code style={{ fontSize: '0.78rem', color: '#38bdf8', wordBreak: 'break-all', display: 'block', background: 'rgba(0,0,0,0.3)', padding: '10px 14px', borderRadius: '8px', lineHeight: 1.45, fontFamily: 'monospace' }}>
               {txHash}
             </code>
-            <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '0.72rem', color: '#94a3b8', flexWrap: 'wrap' }}>
-              <div><strong>Gateway:</strong> {where.gateway}</div>
-              <div><strong>Channel:</strong> {where.channel}</div>
-              <div><strong>Consensus:</strong> <span style={{ color: '#4ade80' }}>✓ {metadata?.consensusStatus || 'FINAL_COMMITTED'}</span></div>
+
+            <div style={{ display: 'flex', gap: '18px', marginTop: '12px', fontSize: '0.74rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+              <div><strong>Gateway Node:</strong> <span style={{ color: '#e2e8f0' }}>{where.gateway}</span></div>
+              <div><strong>Consensus Status:</strong> <span style={{ color: '#4ade80', fontWeight: 600 }}>✓ {metadata?.consensusStatus || 'FINAL_COMMITTED'}</span></div>
             </div>
           </div>
 
-          {/* Structured Payload Accordion */}
+          {/* 4. EXPANDABLE EVENT PAYLOAD INSPECTOR */}
           {safePayloadString && (
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <div
                 onClick={() => setShowPayload(!showPayload)}
                 style={{
-                  padding: '10px 14px',
+                  padding: '12px 16px',
                   background: '#f8fafc',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -418,16 +540,19 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                   userSelect: 'none'
                 }}
               >
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase' }}>
-                  Structured Event Payload Data
-                </span>
-                <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 600 }}>
-                  {showPayload ? '▲ Hide Raw JSON' : '▼ View Raw JSON Payload'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase' }}>
+                    Raw Event Payload Data
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b' }}>(JSON)</span>
+                </div>
+                <span style={{ fontSize: '0.76rem', color: '#2563eb', fontWeight: 600 }}>
+                  {showPayload ? '▲ Hide Payload' : '▼ Inspect Raw JSON Payload'}
                 </span>
               </div>
               {showPayload && (
-                <div style={{ padding: '12px', background: '#090d16', borderTop: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px' }}>
+                <div style={{ padding: '14px 16px', background: '#090d16', borderTop: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                     <button
                       type="button"
                       onClick={handleCopyPayload}
@@ -435,8 +560,8 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                         background: 'rgba(255,255,255,0.15)',
                         border: 'none',
                         color: '#ffffff',
-                        fontSize: '0.68rem',
-                        padding: '3px 8px',
+                        fontSize: '0.7rem',
+                        padding: '4px 10px',
                         borderRadius: '4px',
                         cursor: 'pointer'
                       }}
@@ -444,7 +569,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                       {copiedPayload ? '✓ Copied' : 'Copy JSON'}
                     </button>
                   </div>
-                  <pre style={{ margin: 0, fontSize: '0.74rem', color: '#a5f3fc', overflowX: 'auto', maxHeight: '180px' }}>
+                  <pre style={{ margin: 0, fontSize: '0.75rem', color: '#a5f3fc', overflowX: 'auto', maxHeight: '200px', lineHeight: 1.45 }}>
                     {safePayloadString}
                   </pre>
                 </div>
@@ -458,7 +583,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
         <div
           className="modal-footer"
           style={{
-            padding: '12px 22px',
+            padding: '14px 24px',
             background: '#f8fafc',
             borderTop: '1px solid #e2e8f0',
             display: 'flex',
@@ -466,16 +591,16 @@ function ForensicEvidenceModalContent({ log, onClose }) {
             alignItems: 'center'
           }}
         >
-          <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-            Sovereign Blockchain Audit Record
+          <span style={{ fontSize: '0.76rem', color: '#64748b' }}>
+            Sovereign Blockchain Audit Record · Tamper-evident verification guaranteed by SIH-26125 core engine
           </span>
           <button
             type="button"
             className="btn btn-primary"
             onClick={handleClose}
-            style={{ padding: '6px 20px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
+            style={{ padding: '7px 22px', fontSize: '0.84rem', fontWeight: 600, borderRadius: '6px', cursor: 'pointer' }}
           >
-            Close
+            Close Details
           </button>
         </div>
 

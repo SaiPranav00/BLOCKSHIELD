@@ -127,8 +127,19 @@ Go Smart Contract / Chaincode (`sih26125`)
 
 ## 4. Quick Start & Execution Guide
 
-### One-Command Smart Master Startup (Recommended)
-Run this single command from project root (`/home/lucky/Documents/blocksheild/BLOCKSHIELD`) on **any laptop/machine**:
+### Option A: Standalone Sovereign Mode (Instant 10-Second Startup — Recommended for Demos)
+Run the self-contained frontend with built-in cryptographic ledger (no Docker, no MongoDB, no Go toolchain required):
+
+```bash
+./run.sh
+# or alternatively: ./start-frontend.sh
+```
+
+- **URL**: `http://localhost:5173`
+- **Features**: Complete offline ledger, asset lifecycle, role management, audit dossiers, real-time sync, and Admin approval workflow.
+
+### Option B: Full Stack Enterprise Network (Hyperledger Fabric 2.5 + Go Chaincode + REST API)
+Run this single command from project root (`/home/lucky/Documents/blocksheild/BLOCKSHIELD`) on any machine with Docker and Go:
 
 ```bash
 ./start.sh
@@ -183,7 +194,8 @@ cd frontend && npm install && npm run dev
 
 ## 6. End-to-End Demo Workflow Story
 
-1. **Step 1 (DID Registration)**: Admin registers Engineer A (`did:sih26125:N123456`) with `USER` role in `R&D` department.
+0. **Step 0 (Account Registration & Admin Approval)**: A new user (e.g. `SNEHA_ROY` or any self-registered applicant) submits registration. The account status is set to `PENDING_APPROVAL`. Only the **Administrator** can manually review, approve, or deny registration from the Admin Portal before the user is permitted to log in.
+1. **Step 1 (DID Registration & Activation)**: Admin reviews applicants and registers/activates Engineer A (`did:sih26125:N123456`) with `USER` role in `R&D` department.
 2. **Step 2 (Asset Minting)**: Admin mints asset `NFT-1001` (`RF Signal Analyzer`, `BEL-RF-00421`, Legal Owner: `BEL`).
 3. **Step 3 (Asset Allocation)**: Admin allocates `NFT-1001` custodian to Engineer A (`did:sih26125:N123456`).
 4. **Step 4 (User Inspection & Transfer Request)**: Engineer A logs in, views `RF Signal Analyzer`, and requests custody transfer to Engineer B (`did:sih26125:ENG002`). Asset status moves to `TRANSFER_PENDING`.

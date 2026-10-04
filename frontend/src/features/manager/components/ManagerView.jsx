@@ -45,6 +45,8 @@ export default function ManagerView({
   // Allocation Form
   const [allocTokenId, setAllocTokenId] = useState('');
   const [allocOwnerDid, setAllocOwnerDid] = useState('');
+  const [auditPageSize, setAuditPageSize] = useState(10);
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
 
   const filteredPendingRequests = pendingRequests.filter(req => {
     if (!requestSearch.trim()) return true;
@@ -139,6 +141,11 @@ export default function ManagerView({
       (cat?.label || '').toLowerCase().includes(q)
     );
   });
+
+  const totalAuditPages = Math.ceil(filteredAudits.length / auditPageSize) || 1;
+  const safeAuditPage = Math.min(Math.max(1, auditCurrentPage), totalAuditPages);
+  const startAuditIdx = (safeAuditPage - 1) * auditPageSize;
+  const paginatedAudits = filteredAudits.slice(startAuditIdx, startAuditIdx + auditPageSize);
 
   useEffect(() => {
     refreshManagerData();
@@ -444,85 +451,87 @@ export default function ManagerView({
           </div>
         </div>
 
-        {/* 3 Metric Cards Row (Pending requests, Managed assets, People) */}
-        <div className="admin-metrics-row">
-          {/* Card 1: Pending requests */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('transfer-requests')}
-            title="Click to view Transfer Requests"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                {/* Inbox tray icon */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
+        {/* 3 Metric Cards Row (Pending requests, Managed assets, People) - Visible ONLY in Overview */}
+        {activeTab === 'overview' && (
+          <div className="admin-metrics-row">
+            {/* Card 1: Pending requests */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('transfer-requests')}
+              title="Click to view Transfer Requests"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  {/* Inbox tray icon */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge badge-attention">Attention</span>
               </div>
-              <span className="metric-tag-badge badge-attention">Attention</span>
+
+              <div className="metric-number-big">
+                {pendingRequests.length}
+              </div>
+              <div className="metric-title-text">Pending requests</div>
+              <div className="metric-sub-text">
+                {pendingRequests.length} awaiting authorization
+              </div>
             </div>
 
-            <div className="metric-number-big">
-              {pendingRequests.length}
+            {/* Card 2: Managed assets */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('dept-assets')}
+              title="Click to view Department Assets"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Department</span>
+              </div>
+
+              <div className="metric-number-big">
+                {nftsList.length}
+              </div>
+              <div className="metric-title-text">Managed assets</div>
+              <div className="metric-sub-text">
+                {nftsList.filter(n => !!n.ownerDID).length} currently allocated
+              </div>
             </div>
-            <div className="metric-title-text">Pending requests</div>
-            <div className="metric-sub-text">
-              {pendingRequests.length} awaiting authorization
+
+            {/* Card 3: People */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('personnel')}
+              title="Click to view Personnel"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#059669' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Assigned</span>
+              </div>
+
+              <div className="metric-number-big">
+                {didsList.length}
+              </div>
+              <div className="metric-title-text">People</div>
+              <div className="metric-sub-text">Verified personnel records</div>
             </div>
           </div>
-
-          {/* Card 2: Managed assets */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('dept-assets')}
-            title="Click to view Department Assets"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                  <polyline points="2 17 12 22 22 17"/>
-                  <polyline points="2 12 12 17 22 12"/>
-                </svg>
-              </div>
-              <span className="metric-tag-badge">Department</span>
-            </div>
-
-            <div className="metric-number-big">
-              {nftsList.length}
-            </div>
-            <div className="metric-title-text">Managed assets</div>
-            <div className="metric-sub-text">
-              {nftsList.filter(n => !!n.ownerDID).length} currently allocated
-            </div>
-          </div>
-
-          {/* Card 3: People */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('personnel')}
-            title="Click to view Personnel"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-              </div>
-              <span className="metric-tag-badge">Assigned</span>
-            </div>
-
-            <div className="metric-number-big">
-              {didsList.length}
-            </div>
-            <div className="metric-title-text">People</div>
-            <div className="metric-sub-text">Verified personnel records</div>
-          </div>
-        </div>
+        )}
 
         {/* Workspace Body Content */}
         <div className="admin-tab-body">
@@ -829,25 +838,27 @@ export default function ManagerView({
                   {assetSearch ? `No department assets match '${assetSearch}'.` : 'No department assets recorded.'}
                 </div>
               ) : (
-                <div className="grid grid-3">
+                <div className="grid grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.25rem' }}>
                   {filteredAssetsList.map((asset, idx) => (
-                    <div key={asset.tokenId || idx} className="asset-card">
-                      <div className="asset-header">
-                        <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : asset.status === 'TRANSFER_PENDING' ? 'status-pending' : 'status-revoked'}`}>
-                          {asset.status || 'ACTIVE'}
-                        </span>
-                      </div>
-                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                      <p className="asset-id">Token: <code>{asset.tokenId}</code></p>
-                      {asset.assetId && <p className="asset-id">Asset Registry ID: <code>{asset.assetId}</code></p>}
-                      <div className="asset-meta text-xs my-2">
-                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
-                        <p><strong>Department / Location:</strong> {asset.department || 'R&D'} - {asset.location || 'Lab 1'}</p>
+                    <div key={asset.tokenId || idx} className="asset-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.35rem', borderRadius: '14px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+                      <div>
+                        <div className="asset-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                          <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                          <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : asset.status === 'TRANSFER_PENDING' ? 'status-pending' : 'status-revoked'}`}>
+                            {asset.status || 'ACTIVE'}
+                          </span>
+                        </div>
+                        <h4 className="asset-title" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: '#0f172a' }}>{asset.assetName || asset.name}</h4>
+                        <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Token: <code>{asset.tokenId}</code></p>
+                        {asset.assetId && <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Asset Registry ID: <code>{asset.assetId}</code></p>}
+                        <div className="asset-meta text-xs my-2" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Custodian:</strong> <code style={{ fontSize: '0.72rem' }}>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Department / Location:</strong> <span>{asset.department || 'R&D'} - {asset.location || 'Lab 1'}</span></p>
+                        </div>
                       </div>
                       <button
-                        className="btn btn-xs btn-secondary w-full mt-2"
+                        className="btn btn-xs btn-secondary w-full mt-3"
                         onClick={() => onViewProvenance(asset.tokenId)}
                       >
                         Inspect Provenance &amp; Audit
@@ -1052,8 +1063,17 @@ export default function ManagerView({
                 </button>
               </div>
 
-              <div className="table-responsive">
-                <table className="data-table">
+              <div className="table-responsive-fit">
+                <table className="data-table audit-table-fit">
+                  <colgroup>
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '17%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '13%' }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Timestamp</th>
@@ -1062,7 +1082,7 @@ export default function ManagerView({
                       <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
-                      <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
+                      <th style={{ textAlign: 'center' }}>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1073,7 +1093,7 @@ export default function ManagerView({
                         </td>
                       </tr>
                     ) : (
-                      filteredAudits.map((log, idx) => {
+                      paginatedAudits.map((log, idx) => {
                         const cat = getLogCategoryDetails(log);
                         return (
                           <tr key={log.eventId || idx} style={{ cursor: 'pointer' }} onClick={() => setSelectedAuditLog(log)}>
@@ -1098,11 +1118,11 @@ export default function ManagerView({
                               </span>
                             </td>
                             <td><span className="action-pill">{log.action}</span></td>
-                            <td><code>{log.resourceId}</code></td>
+                            <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
                             <td>
-                              <code>{log.actorDID}</code>
-                              {log.actorName && <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{log.actorName} ({log.actorRole})</div>}
+                              <code className="audit-cell-truncate" title={log.actorDID}>{log.actorDID}</code>
+                              {log.actorName && <div className="audit-cell-truncate" style={{ fontSize: '0.72rem', color: '#64748b' }}>{log.actorName} ({log.actorRole})</div>}
                             </td>
                             <td style={{ textAlign: 'center' }}>
                               <button
@@ -1115,20 +1135,22 @@ export default function ManagerView({
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '5px 12px',
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                  padding: '4px 8px',
                                   borderRadius: '6px',
                                   fontWeight: 600,
-                                  fontSize: '0.78rem',
+                                  fontSize: '0.74rem',
                                   borderColor: '#2563eb',
                                   color: '#2563eb',
                                   background: '#eff6ff',
                                   cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
+                                  width: '100%',
+                                  maxWidth: '110px'
                                 }}
                                 title="View audit details"
                               >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                   <polyline points="14 2 14 8 20 8"/>
                                   <line x1="16" y1="13" x2="8" y2="13"/>
@@ -1143,6 +1165,79 @@ export default function ManagerView({
                     )}
                   </tbody>
                 </table>
+
+                {/* Audit Pagination Controls */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  fontSize: '0.78rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#64748b' }}>Show</span>
+                    <select
+                      className="input input-xs"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '4px' }}
+                      value={auditPageSize}
+                      onChange={(e) => {
+                        setAuditPageSize(Number(e.target.value));
+                        setAuditCurrentPage(1);
+                      }}
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span style={{ color: '#64748b' }}>entries per page</span>
+                    <span style={{ color: '#cbd5e1', margin: '0 4px' }}>|</span>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>
+                      {filteredAudits.length === 0
+                        ? '0 entries'
+                        : `Showing ${startAuditIdx + 1} to ${Math.min(startAuditIdx + auditPageSize, filteredAudits.length)} of ${filteredAudits.length} entries`}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage <= 1}
+                      onClick={() => setAuditCurrentPage(p => Math.max(1, p - 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage <= 1 ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage <= 1 ? 0.5 : 1
+                      }}
+                    >
+                      &larr; Prev
+                    </button>
+                    <span style={{ fontSize: '0.76rem', color: '#334155', fontWeight: 600, padding: '0 6px' }}>
+                      Page {safeAuditPage} of {totalAuditPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage >= totalAuditPages}
+                      onClick={() => setAuditCurrentPage(p => Math.min(totalAuditPages, p + 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage >= totalAuditPages ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage >= totalAuditPages ? 0.5 : 1
+                      }}
+                    >
+                      Next &rarr;
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

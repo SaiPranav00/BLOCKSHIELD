@@ -210,6 +210,28 @@ export const getRole = async (did) => {
   }
 };
 
+export const approveUserRegistration = async (targetDID, options = {}) => {
+  if (getDatabaseMode() === 'LOCAL_DB') {
+    return await localDatabase.approveUserRegistration(targetDID, options);
+  }
+  try {
+    return await request('/identity/approve', { method: 'POST', body: JSON.stringify({ did: targetDID, ...options }) });
+  } catch {
+    return await localDatabase.approveUserRegistration(targetDID, options);
+  }
+};
+
+export const denyUserRegistration = async (targetDID, options = {}) => {
+  if (getDatabaseMode() === 'LOCAL_DB') {
+    return await localDatabase.denyUserRegistration(targetDID, options);
+  }
+  try {
+    return await request('/identity/deny', { method: 'POST', body: JSON.stringify({ did: targetDID, ...options }) });
+  } catch {
+    return await localDatabase.denyUserRegistration(targetDID, options);
+  }
+};
+
 // --- NFT Asset Management APIs ---
 export const mintNFT = async (payload) => {
   if (getDatabaseMode() === 'LOCAL_DB') {
