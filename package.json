@@ -4,9 +4,9 @@
   "description": "SIH 2026 Hyperledger Fabric Blockchain & DID Platform",
   "scripts": {
     "dev": "npm run dev:frontend",
-    "start": "npm run dev:frontend",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build:frontend": "cd frontend && npm run build",
+    "start": "./run.sh",
+    "dev:frontend": "cd frontend && ( [ -d node_modules ] || npm install ) && npm run dev",
+    "build:frontend": "cd frontend && ( [ -d node_modules ] || npm install ) && npm run build",
     "menu": "./scripts/role-menu.sh",
     "admin": "./scripts/role-menu.sh --role admin",
     "manager": "./scripts/role-menu.sh --role manager",
