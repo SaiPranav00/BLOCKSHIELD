@@ -11,11 +11,13 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
   // Login Form States
   const [identityInput, setIdentityInput] = useState(defaultDemo.username);
   const [passwordInput, setPasswordInput] = useState(defaultDemo.password);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Multi-Category Registration States
   const [userCategory, setUserCategory] = useState('DEFENCE'); // 'DEFENCE' | 'SOFTWARE' | 'NON_DEFENCE'
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('password123');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   
   // Identity Proof States
   const [idProofType, setIdProofType] = useState('GOVERNMENT_ID');
@@ -34,13 +36,6 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successInfo, setSuccessInfo] = useState(null);
-
-  const roleIcons = {
-    ADMIN: '🛡️',
-    MANAGER: '💼',
-    AUDITOR: '🔍',
-    USER: '👤',
-  };
 
   const handleSelectCategory = (cat) => {
     setUserCategory(cat);
@@ -205,7 +200,6 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             <div className="modal-title-group">
               <span className="modal-kicker-tag">BLOCKSHIELD ENTERPRISE IDENTITY &amp; ACCESS</span>
               <h2 className="auth-modal-title">
-                <span className="role-icon-inline">{roleIcons[targetRole] || '🔐'}</span>
                 {mode === 'login' ? `${targetRole} Workspace Access` : `Request ${targetRole} Account (Admin Creation)`}
               </h2>
               <p className="modal-intro">
@@ -262,7 +256,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
           {mode === 'login' && (
             <div className="form-layout">
               <div className="auth-demo-picker-box">
-                <span className="auth-demo-picker-label">⚡ 1-Click Instant Sign In:</span>
+                <span className="auth-demo-picker-label">Quick Demo Sign In:</span>
                 <div className="auth-demo-picker-chips">
                   {DEMO_USERS.map((u) => (
                     <button
@@ -283,7 +277,12 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
               <div className="form-group">
                 <label className="label">DID or Username:</label>
                 <div className="input-with-icon">
-                  <span className="input-field-icon">👤</span>
+                  <span className="input-field-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </span>
                   <input
                     type="text"
                     className="input input-has-icon"
@@ -297,16 +296,54 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
 
               <div className="form-group">
                 <label className="label">Password:</label>
-                <div className="input-with-icon">
-                  <span className="input-field-icon">🔒</span>
+                <div className="input-with-icon" style={{ position: 'relative' }}>
+                  <span className="input-field-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </span>
                   <input
-                    type="password"
+                    type={showLoginPassword ? 'text' : 'password'}
                     className="input input-has-icon"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="••••••••••••"
+                    style={{ paddingRight: '40px' }}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#64748b',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 2
+                    }}
+                    title={showLoginPassword ? 'Hide password' : 'View password'}
+                    aria-label={showLoginPassword ? 'Hide password' : 'View password'}
+                  >
+                    {showLoginPassword ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -324,22 +361,30 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             <div className="form-layout">
               {/* Exclusive Admin Authority Policy Notice */}
               <div className="admin-governance-notice" style={{ marginBottom: '1.25rem' }}>
-                <span className="notice-icon">🛡️</span>
+                <span className="notice-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                </span>
                 <div>
                   <strong>Enterprise Policy:</strong> In BlockShield, the System Administrator is the <u>sole authorized person</u> who can create accounts and issue DIDs for Users, Managers, and Auditors. Submitting this form sends your verification proofs to the Administrator's queue for review and ledger provisioning.
                 </div>
               </div>
 
-              {/* STEP 1: USER TYPE SELECTION */}
+              {/* USER TYPE SELECTION */}
               <div className="user-type-selector">
-                <label className="label">1. Select User Category / Affiliation:</label>
+                <label className="label">User Category &amp; Affiliation:</label>
                 <div className="user-type-grid">
                   <button
                     type="button"
                     className={`user-type-card ${userCategory === 'DEFENCE' ? 'active' : ''}`}
                     onClick={() => handleSelectCategory('DEFENCE')}
                   >
-                    <div className="user-type-icon">🛡️</div>
+                    <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      </svg>
+                    </div>
                     <div className="user-type-title">Defence / Government</div>
                     <div className="user-type-desc">BEL, Ministry of Defence, Armed Forces &amp; PSUs</div>
                   </button>
@@ -349,7 +394,13 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                     className={`user-type-card ${userCategory === 'SOFTWARE' ? 'active' : ''}`}
                     onClick={() => handleSelectCategory('SOFTWARE')}
                   >
-                    <div className="user-type-icon">💻</div>
+                    <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                      </svg>
+                    </div>
                     <div className="user-type-title">Software / Tech</div>
                     <div className="user-type-desc">Defense engineering contractors &amp; tech partners</div>
                   </button>
@@ -359,17 +410,22 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                     className={`user-type-card ${userCategory === 'NON_DEFENCE' ? 'active' : ''}`}
                     onClick={() => handleSelectCategory('NON_DEFENCE')}
                   >
-                    <div className="user-type-icon">👤</div>
+                    <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/>
+                      </svg>
+                    </div>
                     <div className="user-type-title">Non-Defence</div>
                     <div className="user-type-desc">Civilian, academic researchers &amp; general users</div>
                   </button>
                 </div>
               </div>
 
-              {/* STEP 2: IDENTITY PROOF */}
+              {/* IDENTITY PROOF */}
               <div className="form-section-box">
                 <div className="form-section-header">
-                  <span className="section-step-num">2</span>
                   <div>
                     <h4 className="section-step-title">Identity Proof</h4>
                     <p className="section-step-subtitle">
@@ -435,10 +491,9 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                 </div>
               </div>
 
-              {/* STEP 3: ORGANIZATION PROOF & VERIFICATION */}
+              {/* ORGANIZATION PROOF & VERIFICATION */}
               <div className="form-section-box">
                 <div className="form-section-header">
-                  <span className="section-step-num">3</span>
                   <div>
                     <h4 className="section-step-title">Organization Proof &amp; Verification</h4>
                     <p className="section-step-subtitle">
@@ -567,10 +622,9 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                 )}
               </div>
 
-              {/* STEP 4: ACCOUNT CREDENTIALS & DID SETUP */}
+              {/* ACCOUNT CREDENTIALS & DID SETUP */}
               <div className="form-section-box">
                 <div className="form-section-header">
-                  <span className="section-step-num">4</span>
                   <div>
                     <h4 className="section-step-title">Account Credentials &amp; DID Setup</h4>
                     <p className="section-step-subtitle">Your Decentralized Identifier (DID) will be issued upon verification.</p>
@@ -595,14 +649,49 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
 
                   <div className="form-group">
                     <label className="label">Password *:</label>
-                    <input
-                      type="password"
-                      className="input"
-                      placeholder="••••••••••••"
-                      value={regPassword}
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      required
-                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        className="input"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        style={{ paddingRight: '42px' }}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#64748b',
+                          padding: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        title={showRegPassword ? 'Hide password' : 'View password'}
+                        aria-label={showRegPassword ? 'Hide password' : 'View password'}
+                      >
+                        {showRegPassword ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    <small className="field-hint">
+                      Default password set: <code>password123</code>
+                    </small>
                   </div>
                 </div>
 

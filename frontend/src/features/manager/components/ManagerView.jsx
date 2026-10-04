@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import blockshieldLogo from '../../../assets/blockshield-logo.svg';
+import ForensicEvidenceModal from '../../../components/ForensicEvidenceModal';
 import {
   getPendingTransferRequests,
   approveTransferRequest,
@@ -7,6 +8,9 @@ import {
   allocateNFT,
   getAllNFTs,
   getAllDIDs,
+  getAuditLogs,
+  isAssetLog,
+  getLogCategoryDetails,
 } from '../../../services/api';
 import { parseList } from '../../../utils';
 
@@ -21,7 +25,18 @@ export default function ManagerView({
   const [pendingRequests, setPendingRequests] = useState([]);
   const [nftsList, setNftsList] = useState([]);
   const [didsList, setDidsList] = useState([]);
+  const [auditList, setAuditList] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Search filter states
+  const [requestSearch, setRequestSearch] = useState('');
+  const [assetSearch, setAssetSearch] = useState('');
+  const [personnelSearch, setPersonnelSearch] = useState('');
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [activityFilter, setActivityFilter] = useState('ALL'); // 'ALL' | 'ASSET' | 'IDENTITY_SECURITY'
+
+  // Modal State
+  const [selectedAuditLog, setSelectedAuditLog] = useState(null);
 
   // Reject Modal State
   const [rejectReqId, setRejectReqId] = useState('');
@@ -31,13 +46,54 @@ export default function ManagerView({
   const [allocTokenId, setAllocTokenId] = useState('');
   const [allocOwnerDid, setAllocOwnerDid] = useState('');
 
+  const filteredPendingRequests = pendingRequests.filter(req => {
+    if (!requestSearch.trim()) return true;
+    const q = requestSearch.toLowerCase().trim();
+    return (
+      (req.requestId || '').toLowerCase().includes(q) ||
+      (req.tokenId || '').toLowerCase().includes(q) ||
+      (req.fromDID || '').toLowerCase().includes(q) ||
+      (req.toDID || '').toLowerCase().includes(q) ||
+      (req.reason || '').toLowerCase().includes(q)
+    );
+  });
+
+  const filteredAssetsList = nftsList.filter(asset => {
+    if (!assetSearch.trim()) return true;
+    const q = assetSearch.toLowerCase().trim();
+    return (
+      (asset.tokenId || '').toLowerCase().includes(q) ||
+      (asset.assetName || asset.name || '').toLowerCase().includes(q) ||
+      (asset.assetType || '').toLowerCase().includes(q) ||
+      (asset.custodian || asset.ownerDID || '').toLowerCase().includes(q) ||
+      (asset.department || '').toLowerCase().includes(q) ||
+      (asset.legalOwner || '').toLowerCase().includes(q) ||
+      (asset.status || '').toLowerCase().includes(q) ||
+      (asset.location || '').toLowerCase().includes(q) ||
+      (asset.assetId || '').toLowerCase().includes(q)
+    );
+  });
+
+  const filteredPersonnelList = didsList.filter(usr => {
+    if (!personnelSearch.trim()) return true;
+    const q = personnelSearch.toLowerCase().trim();
+    return (
+      (usr.did || '').toLowerCase().includes(q) ||
+      (usr.username || usr.name || '').toLowerCase().includes(q) ||
+      (usr.role || '').toLowerCase().includes(q) ||
+      (usr.department || '').toLowerCase().includes(q) ||
+      (usr.status || '').toLowerCase().includes(q)
+    );
+  });
+
   const refreshManagerData = async () => {
     setLoading(true);
     try {
-      const [pendingRes, nftsRes, didsRes] = await Promise.allSettled([
+      const [pendingRes, nftsRes, didsRes, auditRes] = await Promise.allSettled([
         getPendingTransferRequests(),
         getAllNFTs(),
         getAllDIDs(),
+        getAuditLogs(),
       ]);
 
       if (pendingRes.status === 'fulfilled') {
@@ -49,6 +105,9 @@ export default function ManagerView({
       if (didsRes.status === 'fulfilled') {
         setDidsList(parseList(didsRes.value));
       }
+      if (auditRes.status === 'fulfilled') {
+        setAuditList(parseList(auditRes.value));
+      }
     } catch (err) {
       console.error('Failed to refresh manager state:', err);
     } finally {
@@ -56,8 +115,48 @@ export default function ManagerView({
     }
   };
 
+  const filteredAudits = auditList.filter(item => {
+    // Activity separation filter (All vs Asset Operations vs Identity & Security)
+    if (activityFilter === 'ASSET' && !isAssetLog(item)) return false;
+    if (activityFilter === 'IDENTITY_SECURITY' && isAssetLog(item)) return false;
+
+    if (!auditSearchQuery.trim()) return true;
+    const q = auditSearchQuery.toLowerCase().trim();
+    const cat = getLogCategoryDetails(item);
+    return (
+      (item.action || '').toLowerCase().includes(q) ||
+      (item.resourceId || '').toLowerCase().includes(q) ||
+      (item.actorDID || '').toLowerCase().includes(q) ||
+      (item.actorName || '').toLowerCase().includes(q) ||
+      (item.actorRole || '').toLowerCase().includes(q) ||
+      (item.details || '').toLowerCase().includes(q) ||
+      (item.eventId || '').toLowerCase().includes(q) ||
+      (item.result || '').toLowerCase().includes(q) ||
+      (item.txId || '').toLowerCase().includes(q) ||
+      (item.policyRule || '').toLowerCase().includes(q) ||
+      (item.blockNumber ? String(item.blockNumber) : '').toLowerCase().includes(q) ||
+      (cat?.badge || '').toLowerCase().includes(q) ||
+      (cat?.label || '').toLowerCase().includes(q)
+    );
+  });
+
   useEffect(() => {
     refreshManagerData();
+    // Auto-poll manager state every 3.5 seconds
+    const timer = setInterval(() => {
+      refreshManagerData();
+    }, 3500);
+
+    // Immediate reactive update on any local database mutation event
+    const handleDataChange = () => {
+      refreshManagerData();
+    };
+
+    window.addEventListener('blockshield:data-change', handleDataChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('blockshield:data-change', handleDataChange);
+    };
   }, []);
 
   const sanitizeTokenId = (raw) => {
@@ -143,6 +242,7 @@ export default function ManagerView({
       case 'dept-assets': return 'Department Assets';
       case 'allocate': return 'Allocate Asset';
       case 'personnel': return 'Personnel';
+      case 'audit-trail': return 'Audit Trail';
       default: return 'Overview';
     }
   };
@@ -248,6 +348,22 @@ export default function ManagerView({
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
               <span>Personnel</span>
+            </button>
+
+            <button
+              type="button"
+              className={`admin-nav-btn ${activeTab === 'audit-trail' ? 'active' : ''}`}
+              onClick={() => setActiveTab('audit-trail')}
+            >
+              <svg className="admin-nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+              <span>Audit Trail</span>
             </button>
           </nav>
         </div>
@@ -588,12 +704,24 @@ export default function ManagerView({
                   <h3 className="card-title">Pending Custodian Transfer Requests</h3>
                   <p className="text-xs text-muted">Review and authorize asset custodian transfers. Approving commits the updated custodian to the Fabric blockchain.</p>
                 </div>
-                <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
+                <div className="flex-gap align-center">
+                  <input
+                    type="text"
+                    className="input input-sm"
+                    style={{ minWidth: 220 }}
+                    placeholder="Search requests..."
+                    value={requestSearch}
+                    onChange={(e) => setRequestSearch(e.target.value)}
+                  />
+                  <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
+                </div>
               </div>
 
-              {pendingRequests.length === 0 ? (
+              {filteredPendingRequests.length === 0 ? (
                 <div className="empty-state-box py-5">
-                  <p className="text-muted">No pending transfer requests require your approval at this time.</p>
+                  <p className="text-muted">
+                    {requestSearch ? `No transfer requests match '${requestSearch}'.` : 'No pending transfer requests require your approval at this time.'}
+                  </p>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -610,7 +738,7 @@ export default function ManagerView({
                       </tr>
                     </thead>
                     <tbody>
-                      {pendingRequests.map((req) => (
+                      {filteredPendingRequests.map((req) => (
                         <tr key={req.requestId}>
                           <td><code>{req.requestId}</code></td>
                           <td><code>{req.tokenId}</code></td>
@@ -679,36 +807,55 @@ export default function ManagerView({
           {activeTab === 'dept-assets' && (
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Department Managed Assets</h3>
-                <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
+                <div>
+                  <h3 className="card-title">Department Managed Assets</h3>
+                  <p className="text-xs text-muted">Inspect and monitor equipment, tokens, and hardware assigned across department personnel.</p>
+                </div>
+                <div className="flex-gap align-center">
+                  <input
+                    type="text"
+                    className="input input-sm"
+                    style={{ minWidth: 250 }}
+                    placeholder="Search department assets..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                  />
+                  <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
+                </div>
               </div>
 
-              <div className="grid grid-3">
-                {nftsList.map((asset, idx) => (
-                  <div key={asset.tokenId || idx} className="asset-card">
-                    <div className="asset-header">
-                      <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                      <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : asset.status === 'TRANSFER_PENDING' ? 'status-pending' : 'status-revoked'}`}>
-                        {asset.status || 'ACTIVE'}
-                      </span>
+              {filteredAssetsList.length === 0 ? (
+                <div className="empty-state-box py-5 text-center text-muted">
+                  {assetSearch ? `No department assets match '${assetSearch}'.` : 'No department assets recorded.'}
+                </div>
+              ) : (
+                <div className="grid grid-3">
+                  {filteredAssetsList.map((asset, idx) => (
+                    <div key={asset.tokenId || idx} className="asset-card">
+                      <div className="asset-header">
+                        <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : asset.status === 'TRANSFER_PENDING' ? 'status-pending' : 'status-revoked'}`}>
+                          {asset.status || 'ACTIVE'}
+                        </span>
+                      </div>
+                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
+                      <p className="asset-id">Token: <code>{asset.tokenId}</code></p>
+                      {asset.assetId && <p className="asset-id">Asset Registry ID: <code>{asset.assetId}</code></p>}
+                      <div className="asset-meta text-xs my-2">
+                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                        <p><strong>Department / Location:</strong> {asset.department || 'R&D'} - {asset.location || 'Lab 1'}</p>
+                      </div>
+                      <button
+                        className="btn btn-xs btn-secondary w-full mt-2"
+                        onClick={() => onViewProvenance(asset.tokenId)}
+                      >
+                        Inspect Provenance &amp; Audit
+                      </button>
                     </div>
-                    <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                    <p className="asset-id">Token: <code>{asset.tokenId}</code></p>
-                    {asset.assetId && <p className="asset-id">Asset Registry ID: <code>{asset.assetId}</code></p>}
-                    <div className="asset-meta text-xs my-2">
-                      <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                      <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
-                      <p><strong>Department / Location:</strong> {asset.department || 'R&D'} - {asset.location || 'Lab 1'}</p>
-                    </div>
-                    <button
-                      className="btn btn-xs btn-secondary w-full mt-2"
-                      onClick={() => onViewProvenance(asset.tokenId)}
-                    >
-                      Inspect Provenance &amp; Audit
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -759,7 +906,17 @@ export default function ManagerView({
               ────────────────────────────────────────────────────────── */}
           {activeTab === 'personnel' && (
             <div className="glass-card">
-              <h3 className="card-title mb-3">Department Personnel Directory</h3>
+              <div className="flex-between card-header-row mb-3">
+                <h3 className="card-title">Department Personnel Directory</h3>
+                <input
+                  type="text"
+                  className="input input-sm"
+                  style={{ minWidth: 240 }}
+                  placeholder="Filter personnel by DID, name, role..."
+                  value={personnelSearch}
+                  onChange={(e) => setPersonnelSearch(e.target.value)}
+                />
+              </div>
               <div className="table-responsive">
                 <table className="data-table">
                   <thead>
@@ -772,15 +929,218 @@ export default function ManagerView({
                     </tr>
                   </thead>
                   <tbody>
-                    {didsList.map((usr) => (
-                      <tr key={usr.did}>
-                        <td><code>{usr.did}</code></td>
-                        <td><span className="type-pill">{usr.role}</span></td>
-                        <td>{usr.department || 'R&D'}</td>
-                        <td><span className={`status-pill ${usr.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{usr.status}</span></td>
-                        <td className="text-xs">{usr.createdAt ? new Date(usr.createdAt).toLocaleString() : 'N/A'}</td>
+                    {filteredPersonnelList.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="text-center py-4 text-muted">
+                          {personnelSearch ? `No personnel match '${personnelSearch}'.` : 'No personnel found.'}
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredPersonnelList.map((usr) => (
+                        <tr key={usr.did}>
+                          <td><code>{usr.did}</code></td>
+                          <td><span className="type-pill">{usr.role}</span></td>
+                          <td>{usr.department || 'R&D'}</td>
+                          <td><span className={`status-pill ${usr.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{usr.status}</span></td>
+                          <td className="text-xs">{usr.createdAt ? new Date(usr.createdAt).toLocaleString() : 'N/A'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────
+              TAB 5: AUDIT TRAIL (MANAGER ACCESS)
+              ────────────────────────────────────────────────────────── */}
+          {activeTab === 'audit-trail' && (
+            <div className="glass-card">
+              <div className="flex-between card-header-row mb-3">
+                <div>
+                  <h3 className="card-title">Immutable Ledger Audit Trail</h3>
+                  <p className="text-xs text-muted">Complete cryptographic activity trail across assets, identities, and governance.</p>
+                </div>
+                <div className="flex-gap">
+                  <input
+                    type="text"
+                    className="input input-sm"
+                    placeholder="Filter Audit Logs..."
+                    value={auditSearchQuery}
+                    onChange={(e) => setAuditSearchQuery(e.target.value)}
+                  />
+                  <button className="btn btn-xs btn-secondary" onClick={refreshManagerData}>Refresh</button>
+                </div>
+              </div>
+
+              {/* Activity Separation Options (All vs Asset vs Other) */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('ALL')}
+                  className={`btn btn-xs ${activityFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontWeight: activityFilter === 'ALL' ? 700 : 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>All Activities</span>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: activityFilter === 'ALL' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activityFilter === 'ALL' ? '#ffffff' : '#475569',
+                    padding: '1px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {auditList.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('ASSET')}
+                  className={`btn btn-xs ${activityFilter === 'ASSET' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontWeight: activityFilter === 'ASSET' ? 700 : 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>Asset Operations</span>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: activityFilter === 'ASSET' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activityFilter === 'ASSET' ? '#ffffff' : '#475569',
+                    padding: '1px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {auditList.filter(isAssetLog).length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('IDENTITY_SECURITY')}
+                  className={`btn btn-xs ${activityFilter === 'IDENTITY_SECURITY' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontWeight: activityFilter === 'IDENTITY_SECURITY' ? 700 : 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>Identity &amp; Security</span>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: activityFilter === 'IDENTITY_SECURITY' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activityFilter === 'IDENTITY_SECURITY' ? '#ffffff' : '#475569',
+                    padding: '1px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {auditList.filter(l => !isAssetLog(l)).length}
+                  </span>
+                </button>
+              </div>
+
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Category</th>
+                      <th>Action</th>
+                      <th>Resource ID</th>
+                      <th>Result</th>
+                      <th>Actor DID</th>
+                      <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAudits.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="empty-table-cell">
+                          <p className="text-muted">No audit transactions recorded yet</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAudits.map((log, idx) => {
+                        const cat = getLogCategoryDetails(log);
+                        return (
+                          <tr key={log.eventId || idx} style={{ cursor: 'pointer' }} onClick={() => setSelectedAuditLog(log)}>
+                            <td className="text-sm">
+                              <div>{log.timestamp ? (Number(log.timestamp) > 10000000000 ? new Date(Number(log.timestamp)).toLocaleString() : new Date(Number(log.timestamp) * 1000).toLocaleString()) : 'N/A'}</div>
+                              {log.blockNumber && <span className="type-pill" style={{ fontSize: '0.65rem', marginTop: '2px', display: 'inline-block' }}>Block #{log.blockNumber}</span>}
+                            </td>
+                            <td>
+                              <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                background: cat.bg,
+                                color: cat.color,
+                                border: `1px solid ${cat.border}`,
+                                display: 'inline-block',
+                                whiteSpace: 'nowrap',
+                                letterSpacing: '0.03em'
+                              }}>
+                                {cat.badge}
+                              </span>
+                            </td>
+                            <td><span className="action-pill">{log.action}</span></td>
+                            <td><code>{log.resourceId}</code></td>
+                            <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
+                            <td>
+                              <code>{log.actorDID}</code>
+                              {log.actorName && <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{log.actorName} ({log.actorRole})</div>}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAuditLog(log);
+                                }}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontWeight: 600,
+                                  fontSize: '0.78rem',
+                                  borderColor: '#2563eb',
+                                  color: '#2563eb',
+                                  background: '#eff6ff',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title="View audit details"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                  <line x1="16" y1="13" x2="8" y2="13"/>
+                                  <line x1="16" y1="17" x2="8" y2="17"/>
+                                </svg>
+                                <span>View Details</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -788,6 +1148,15 @@ export default function ManagerView({
           )}
         </div>
       </main>
+
+      {/* Audit Log Details Modal */}
+      {selectedAuditLog && (
+        <ForensicEvidenceModal
+          isOpen={!!selectedAuditLog}
+          log={selectedAuditLog}
+          onClose={() => setSelectedAuditLog(null)}
+        />
+      )}
     </div>
   );
 }

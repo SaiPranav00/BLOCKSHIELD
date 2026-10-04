@@ -10,6 +10,7 @@ export default function Header({
   authUser,
   onLogout,
   unreadCount = 0,
+  onDataRefresh,
 }) {
   const displayRole = authUser?.role || activeRole || 'USER';
   const rawIdentifier = authUser?.username || authUser?.did || (activeDID ? activeDID.split(':').pop() : `${displayRole}001`);

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import blockshieldLogo from '../../../assets/blockshield-logo.svg';
+import ForensicEvidenceModal from '../../../components/ForensicEvidenceModal';
 import {
   getAuditLogs,
   getAuditLogsByResource,
   getAllDIDs,
   getAllNFTs,
+  isAssetLog,
 } from '../../../services/api';
 import { parseList } from '../../../utils';
 
@@ -24,23 +26,29 @@ export default function AuditorView({
   const [auditFilter, setAuditFilter] = useState('');
   const [didSearch, setDidSearch] = useState('');
   const [resourceSearch, setResourceSearch] = useState('');
+  const [assetSearch, setAssetSearch] = useState('');
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [deniedOnly, setDeniedOnly] = useState(false);
 
   const [verifyInput, setVerifyInput] = useState('');
   const [provTokenId, setProvTokenId] = useState('');
 
+  // Forensic Evidence Modal state
+  const [selectedEvidenceLog, setSelectedEvidenceLog] = useState(null);
+  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
+
   const refreshAuditData = async () => {
     setLoading(true);
     try {
       const [auditRes, didsRes, nftsRes] = await Promise.allSettled([
-        getAuditLogs(),
+        getAuditLogs('AUDITOR'),
         getAllDIDs(),
         getAllNFTs(),
       ]);
 
       if (auditRes.status === 'fulfilled') {
-        setAuditList(parseList(auditRes.value));
+        const rawLogs = parseList(auditRes.value);
+        setAuditList(rawLogs.filter(isAssetLog));
       }
       if (didsRes.status === 'fulfilled') {
         setDidsList(parseList(didsRes.value));
@@ -57,6 +65,21 @@ export default function AuditorView({
 
   useEffect(() => {
     refreshAuditData();
+    // Auto-poll audit records every 3.5 seconds
+    const timer = setInterval(() => {
+      refreshAuditData();
+    }, 3500);
+
+    // Immediate reactive update on any local database mutation event
+    const handleDataChange = () => {
+      refreshAuditData();
+    };
+
+    window.addEventListener('blockshield:data-change', handleDataChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('blockshield:data-change', handleDataChange);
+    };
   }, []);
 
   const sanitizeTokenId = (raw) => {
@@ -88,12 +111,13 @@ export default function AuditorView({
     }
 
     try {
-      const res = await getAuditLogsByResource(cleanQuery);
+      const res = await getAuditLogsByResource(cleanQuery, 'AUDITOR');
       const data = res?.data || res || [];
-      setFilteredLogs(Array.isArray(data) ? data : []);
+      const assetOnlyData = (Array.isArray(data) ? data : []).filter(isAssetLog);
+      setFilteredLogs(assetOnlyData);
       setActiveTab('filter-resource');
       setResourceSearch(cleanQuery);
-      notify(`Found ${data.length} audit entries for ${cleanQuery}`, 'success');
+      notify(`Found ${assetOnlyData.length} asset audit entries for ${cleanQuery}`, 'success');
     } catch (err) {
       const errMsg = err.message || '';
       const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
@@ -114,13 +138,40 @@ export default function AuditorView({
     onViewProvenance(cleanToken);
   };
 
-  const filteredAuditsList = auditList.filter(item => {
-    if (deniedOnly && item.result !== 'DENIED') return false;
+  const filteredAuditsList = auditList
+    .filter(item => isAssetLog(item))
+    .filter(item => {
+      if (deniedOnly && item.result !== 'DENIED') return false;
+      if (!auditFilter.trim()) return true;
+      const q = auditFilter.toLowerCase().trim();
+      const payloadStr = item.payload ? JSON.stringify(item.payload).toLowerCase() : '';
+      return (
+        (item.action || '').toLowerCase().includes(q) ||
+        (item.resourceId || '').toLowerCase().includes(q) ||
+        (item.actorDID || '').toLowerCase().includes(q) ||
+        (item.actorName || '').toLowerCase().includes(q) ||
+        (item.actorRole || '').toLowerCase().includes(q) ||
+        (item.details || '').toLowerCase().includes(q) ||
+        (item.eventId || '').toLowerCase().includes(q) ||
+        (item.txId || '').toLowerCase().includes(q) ||
+        (item.policyRule || '').toLowerCase().includes(q) ||
+        String(item.blockNumber || '').includes(q) ||
+        payloadStr.includes(q)
+      );
+    });
+
+  const filteredAssetsList = nftsList.filter(item => {
+    if (!assetSearch.trim()) return true;
+    const q = assetSearch.toLowerCase().trim();
     return (
-      (item.action || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-      (item.resourceId || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-      (item.actorDID || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-      (item.details || '').toLowerCase().includes(auditFilter.toLowerCase())
+      (item.tokenId || '').toLowerCase().includes(q) ||
+      (item.assetName || item.name || '').toLowerCase().includes(q) ||
+      (item.assetType || '').toLowerCase().includes(q) ||
+      (item.custodian || item.ownerDID || '').toLowerCase().includes(q) ||
+      (item.department || '').toLowerCase().includes(q) ||
+      (item.legalOwner || '').toLowerCase().includes(q) ||
+      (item.status || '').toLowerCase().includes(q) ||
+      (item.metadata || '').toLowerCase().includes(q)
     );
   });
 
@@ -582,7 +633,7 @@ export default function AuditorView({
                       <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
-                      <th>Details</th>
+                      <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -599,7 +650,7 @@ export default function AuditorView({
 
                         return (
                           <tr key={log.eventId || index} className={isDenied ? 'row-denied' : ''}>
-                            <td className="text-xs">{formattedTime}</td>
+                            <td className="text-xs" style={{ whiteSpace: 'nowrap' }}>{formattedTime}</td>
                             <td><span className="type-pill">{log.action}</span></td>
                             <td><code>{log.resourceId}</code></td>
                             <td>
@@ -608,7 +659,40 @@ export default function AuditorView({
                               </span>
                             </td>
                             <td><code>{log.actorDID}</code></td>
-                            <td className="text-xs text-muted">{log.details || 'N/A'}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontWeight: 600,
+                                  fontSize: '0.78rem',
+                                  borderColor: '#2563eb',
+                                  color: '#2563eb',
+                                  background: '#eff6ff',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                onClick={() => {
+                                  setSelectedEvidenceLog(log);
+                                  setIsEvidenceModalOpen(true);
+                                }}
+                                title="View audit details"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                  <line x1="16" y1="13" x2="8" y2="13"/>
+                                  <line x1="16" y1="17" x2="8" y2="17"/>
+                                  <polyline points="10 9 9 9 8 9"/>
+                                </svg>
+                                <span>View Details</span>
+                              </button>
+                            </td>
                           </tr>
                         );
                       })
@@ -651,18 +735,51 @@ export default function AuditorView({
                         <th>Action</th>
                         <th>Result</th>
                         <th>Actor DID</th>
-                        <th>Audit Details</th>
+                        <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredLogs.map((log, idx) => (
                         <tr key={log.eventId || idx} className={log.result === 'DENIED' ? 'row-denied' : ''}>
                           <td><code>{log.eventId}</code></td>
-                          <td className="text-xs">{log.timestamp && !isNaN(log.timestamp) ? new Date(Number(log.timestamp) * 1000).toLocaleString() : log.timestamp}</td>
+                          <td className="text-xs" style={{ whiteSpace: 'nowrap' }}>{log.timestamp && !isNaN(log.timestamp) ? new Date(Number(log.timestamp) * 1000).toLocaleString() : log.timestamp}</td>
                           <td><span className="type-pill">{log.action}</span></td>
                           <td><span className={`status-pill ${log.result === 'DENIED' ? 'status-revoked' : 'status-active'}`}>{log.result}</span></td>
                           <td><code>{log.actorDID}</code></td>
-                          <td className="text-xs">{log.details}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                fontSize: '0.78rem',
+                                borderColor: '#2563eb',
+                                color: '#2563eb',
+                                background: '#eff6ff',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onClick={() => {
+                                setSelectedEvidenceLog(log);
+                                setIsEvidenceModalOpen(true);
+                              }}
+                              title="View audit details"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                              </svg>
+                              <span>View Details</span>
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -678,34 +795,53 @@ export default function AuditorView({
           {activeTab === 'dept-assets' && (
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Asset History &amp; Custody Roster</h3>
-                <button className="btn btn-xs btn-secondary" onClick={refreshAuditData}>Refresh</button>
+                <div>
+                  <h3 className="card-title">Asset History &amp; Custody Roster</h3>
+                  <p className="text-xs text-muted">Inspect verified assets and their current custodians across all departments.</p>
+                </div>
+                <div className="flex-gap align-center">
+                  <input
+                    type="text"
+                    className="input input-sm"
+                    style={{ minWidth: 260 }}
+                    placeholder="Search asset, token, custodian, dept..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                  />
+                  <button className="btn btn-xs btn-secondary" onClick={refreshAuditData}>Refresh</button>
+                </div>
               </div>
 
-              <div className="grid grid-3">
-                {nftsList.map((asset) => (
-                  <div key={asset.tokenId} className="asset-card">
-                    <div className="asset-header">
-                      <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                      <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+              {filteredAssetsList.length === 0 ? (
+                <div className="empty-state-box py-5 text-center text-muted">
+                  No assets match your search criteria.
+                </div>
+              ) : (
+                <div className="grid grid-3">
+                  {filteredAssetsList.map((asset) => (
+                    <div key={asset.tokenId} className="asset-card">
+                      <div className="asset-header">
+                        <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                      </div>
+                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
+                      <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
+                      {asset.assetId && <p className="asset-id">Asset ID: <code>{asset.assetId}</code></p>}
+                      <div className="asset-meta text-xs my-2">
+                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
+                        <p><strong>Department:</strong> {asset.department || 'R&D'}</p>
+                      </div>
+                      <button
+                        className="btn btn-xs btn-secondary w-full mt-2"
+                        onClick={() => onViewProvenance(asset.tokenId)}
+                      >
+                        View Visual History Timeline
+                      </button>
                     </div>
-                    <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                    <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
-                    {asset.assetId && <p className="asset-id">Asset ID: <code>{asset.assetId}</code></p>}
-                    <div className="asset-meta text-xs my-2">
-                      <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                      <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
-                      <p><strong>Department:</strong> {asset.department || 'R&D'}</p>
-                    </div>
-                    <button
-                      className="btn btn-xs btn-secondary w-full mt-2"
-                      onClick={() => onViewProvenance(asset.tokenId)}
-                    >
-                      View Visual History Timeline
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -715,45 +851,76 @@ export default function AuditorView({
           {activeTab === 'provenance' && (
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Asset Provenance Timeline Inspector</h3>
-                <form onSubmit={handleViewProvenanceDirect} className="flex-gap">
+                <div>
+                  <h3 className="card-title">Asset Provenance Timeline Inspector</h3>
+                  <p className="text-xs text-muted">Search or select any token to inspect its immutable block-by-block custody lineage.</p>
+                </div>
+                <div className="flex-gap align-center">
                   <input
                     type="text"
                     className="input input-sm"
-                    placeholder="Enter Token ID (e.g. NFT-1001)..."
-                    value={provTokenId}
-                    onChange={(e) => setProvTokenId(e.target.value)}
+                    style={{ minWidth: 220 }}
+                    placeholder="Filter asset list..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
                   />
-                  <button type="submit" className="btn btn-xs btn-primary">Inspect Timeline</button>
-                </form>
+                  <form onSubmit={handleViewProvenanceDirect} className="flex-gap">
+                    <input
+                      type="text"
+                      className="input input-sm"
+                      placeholder="Inspect Token ID (e.g. NFT-1001)..."
+                      value={provTokenId}
+                      onChange={(e) => setProvTokenId(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-xs btn-primary">Inspect</button>
+                  </form>
+                </div>
               </div>
 
-              <div className="grid grid-3">
-                {nftsList.map((asset) => (
-                  <div key={asset.tokenId} className="asset-card">
-                    <div className="asset-header">
-                      <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                      <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+              {filteredAssetsList.length === 0 ? (
+                <div className="empty-state-box py-5 text-center text-muted">
+                  No assets match your search criteria.
+                </div>
+              ) : (
+                <div className="grid grid-3">
+                  {filteredAssetsList.map((asset) => (
+                    <div key={asset.tokenId} className="asset-card">
+                      <div className="asset-header">
+                        <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                        <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                      </div>
+                      <h4 className="asset-title">{asset.assetName || asset.name}</h4>
+                      <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
+                      <div className="asset-meta text-xs my-2">
+                        <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                        <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                      </div>
+                      <button
+                        className="btn btn-xs btn-secondary w-full mt-2"
+                        onClick={() => onViewProvenance(asset.tokenId)}
+                      >
+                        Inspect Provenance &amp; Audit
+                      </button>
                     </div>
-                    <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                    <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
-                    <div className="asset-meta text-xs my-2">
-                      <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                      <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
-                    </div>
-                    <button
-                      className="btn btn-xs btn-secondary w-full mt-2"
-                      onClick={() => onViewProvenance(asset.tokenId)}
-                    >
-                      Inspect Provenance &amp; Audit
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </main>
+
+      {/* Audit Log Details Modal */}
+      {isEvidenceModalOpen && selectedEvidenceLog && (
+        <ForensicEvidenceModal
+          isOpen={isEvidenceModalOpen}
+          onClose={() => {
+            setIsEvidenceModalOpen(false);
+            setSelectedEvidenceLog(null);
+          }}
+          log={selectedEvidenceLog}
+        />
+      )}
     </div>
   );
 }

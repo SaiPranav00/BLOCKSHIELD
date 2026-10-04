@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "SIH 2026 Hyperledger Fabric Blockchain & DID Platform",
   "scripts": {
+    "dev": "npm run dev:frontend",
+    "start": "npm run dev:frontend",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
     "menu": "./scripts/role-menu.sh",
     "admin": "./scripts/role-menu.sh --role admin",
     "manager": "./scripts/role-menu.sh --role manager",
@@ -12,7 +16,6 @@
     "network:up": "./scripts/network-up.sh",
     "network:down": "./scripts/network-down.sh",
     "start:backend": "cd backend && npm start",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev"
+    "dev:backend": "cd backend && npm run dev"
   }
 }

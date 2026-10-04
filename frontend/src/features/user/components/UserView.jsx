@@ -24,6 +24,10 @@ export default function UserView({
   const [allDids, setAllDids] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Search filter states
+  const [assetSearch, setAssetSearch] = useState('');
+  const [requestSearch, setRequestSearch] = useState('');
+
   // Transfer Request Form
   const [transTokenId, setTransTokenId] = useState('');
   const [transRecipientDid, setTransRecipientDid] = useState('');
@@ -34,6 +38,34 @@ export default function UserView({
   const [verifyResult, setVerifyResult] = useState(null);
 
   const currentDID = activeDID || 'did:sih26125:USER001';
+
+  const filteredMyAssets = myAssets.filter(asset => {
+    if (!assetSearch.trim()) return true;
+    const q = assetSearch.toLowerCase().trim();
+    return (
+      (asset.tokenId || '').toLowerCase().includes(q) ||
+      (asset.assetName || asset.name || '').toLowerCase().includes(q) ||
+      (asset.assetType || '').toLowerCase().includes(q) ||
+      (asset.legalOwner || '').toLowerCase().includes(q) ||
+      (asset.custodian || asset.ownerDID || '').toLowerCase().includes(q) ||
+      (asset.department || '').toLowerCase().includes(q) ||
+      (asset.status || '').toLowerCase().includes(q) ||
+      (asset.assetId || '').toLowerCase().includes(q)
+    );
+  });
+
+  const filteredMyRequests = myRequests.filter(req => {
+    if (!requestSearch.trim()) return true;
+    const q = requestSearch.toLowerCase().trim();
+    return (
+      (req.requestId || '').toLowerCase().includes(q) ||
+      (req.tokenId || '').toLowerCase().includes(q) ||
+      (req.toDID || '').toLowerCase().includes(q) ||
+      (req.fromDID || '').toLowerCase().includes(q) ||
+      (req.status || '').toLowerCase().includes(q) ||
+      (req.reason || '').toLowerCase().includes(q)
+    );
+  });
 
   const refreshUserData = async () => {
     setLoading(true);
@@ -66,6 +98,21 @@ export default function UserView({
 
   useEffect(() => {
     refreshUserData();
+    // Auto-poll user assets and requests every 3.5 seconds
+    const timer = setInterval(() => {
+      refreshUserData();
+    }, 3500);
+
+    // Immediate reactive update on any local database mutation event
+    const handleDataChange = () => {
+      refreshUserData();
+    };
+
+    window.addEventListener('blockshield:data-change', handleDataChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('blockshield:data-change', handleDataChange);
+    };
   }, [currentDID]);
 
   const sanitizeTokenId = (raw) => {
@@ -603,16 +650,28 @@ export default function UserView({
                   <h3 className="card-title">Assets Assigned to Your Custody</h3>
                   <p className="text-xs text-muted">All hardware, tokens, and resources allocated to your DID.</p>
                 </div>
-                <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh</button>
+                <div className="flex-gap align-center">
+                  <input
+                    type="text"
+                    className="input input-sm"
+                    style={{ minWidth: 240 }}
+                    placeholder="Search my assets..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                  />
+                  <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh</button>
+                </div>
               </div>
 
-              {myAssets.length === 0 ? (
+              {filteredMyAssets.length === 0 ? (
                 <div className="empty-state-box py-5">
-                  <p className="text-muted">No digital or physical assets currently assigned to DID <code>{currentDID}</code>.</p>
+                  <p className="text-muted">
+                    {assetSearch ? `No assigned assets match '${assetSearch}'.` : `No digital or physical assets currently assigned to DID ${currentDID}.`}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-3">
-                  {myAssets.map((asset, index) => {
+                  {filteredMyAssets.map((asset, index) => {
                     const isPending = asset.status === 'TRANSFER_PENDING';
                     return (
                       <div key={asset.tokenId || index} className="asset-card">
@@ -747,7 +806,19 @@ export default function UserView({
               </div>
 
               {/* Status Roster */}
-              <div className="table-responsive mt-3">
+              <div className="flex-between align-center mb-2 mt-4">
+                <h4 className="text-sm font-semibold">Submitted Request Status</h4>
+                <input
+                  type="text"
+                  className="input input-sm"
+                  style={{ maxWidth: 240 }}
+                  placeholder="Filter requests..."
+                  value={requestSearch}
+                  onChange={(e) => setRequestSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="table-responsive">
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -761,12 +832,14 @@ export default function UserView({
                     </tr>
                   </thead>
                   <tbody>
-                    {myRequests.length === 0 ? (
+                    {filteredMyRequests.length === 0 ? (
                       <tr>
-                        <td colSpan="7" className="text-center py-4 text-muted">No transfer requests submitted yet.</td>
+                        <td colSpan="7" className="text-center py-4 text-muted">
+                          {requestSearch ? `No requests match '${requestSearch}'.` : 'No transfer requests submitted yet.'}
+                        </td>
                       </tr>
                     ) : (
-                      myRequests.map((req, idx) => (
+                      filteredMyRequests.map((req, idx) => (
                         <tr key={req.requestId || idx}>
                           <td><code>{req.requestId}</code></td>
                           <td><code>{req.tokenId}</code></td>

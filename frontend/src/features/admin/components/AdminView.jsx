@@ -12,8 +12,11 @@ import {
   getAllNFTs,
   getAuditLogs,
   generateKeyPair,
+  isAssetLog,
+  getLogCategoryDetails,
 } from '../../../services/api';
 import { parseList } from '../../../utils';
+import ForensicEvidenceModal from '../../../components/ForensicEvidenceModal';
 
 export default function AdminView({
   activeDID,
@@ -24,6 +27,7 @@ export default function AdminView({
   authUser,
 }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedAuditLog, setSelectedAuditLog] = useState(null);
   
   const [didsList, setDidsList] = useState([]);
   const [nftsList, setNftsList] = useState([]);
@@ -33,6 +37,7 @@ export default function AdminView({
   const [didSearchQuery, setDidSearchQuery] = useState('');
   const [nftSearchQuery, setNftSearchQuery] = useState('');
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [activityFilter, setActivityFilter] = useState('ALL'); // 'ALL' | 'ASSET' | 'IDENTITY_SECURITY'
 
   const [newDidInput, setNewDidInput] = useState('');
   const [newRoleInput, setNewRoleInput] = useState('USER');
@@ -47,6 +52,7 @@ export default function AdminView({
   const [adminOrgAuthCode, setAdminOrgAuthCode] = useState('BEL-SEC-2026');
   const [adminOrgName, setAdminOrgName] = useState('');
   const [adminUserPassword, setAdminUserPassword] = useState('password123');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
 
   const handleAdminCategoryChange = (cat) => {
     setAdminUserCategory(cat);
@@ -119,6 +125,21 @@ export default function AdminView({
 
   useEffect(() => {
     refreshData();
+    // Auto-poll ledger state every 3.5 seconds
+    const timer = setInterval(() => {
+      refreshData();
+    }, 3500);
+
+    // Immediate update when data mutations occur
+    const handleDataChange = () => {
+      refreshData();
+    };
+
+    window.addEventListener('blockshield:data-change', handleDataChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('blockshield:data-change', handleDataChange);
+    };
   }, []);
 
   const handleGenKeyPair = async () => {
@@ -357,22 +378,61 @@ export default function AdminView({
 
   const filteredDIDs = didsList
     .filter(item => !(item.role === 'ADMIN' && item.did !== 'did:sih26125:ADMIN001'))
-    .filter(item =>
-      (item.did || '').toLowerCase().includes(didSearchQuery.toLowerCase()) ||
-      (item.role || '').toLowerCase().includes(didSearchQuery.toLowerCase())
+    .filter(item => {
+      const q = (didSearchQuery || '').toLowerCase();
+      return (
+        (item.did || '').toLowerCase().includes(q) ||
+        (item.username || '').toLowerCase().includes(q) ||
+        (item.name || '').toLowerCase().includes(q) ||
+        (item.role || '').toLowerCase().includes(q) ||
+        (item.department || '').toLowerCase().includes(q) ||
+        (item.userCategory || '').toLowerCase().includes(q) ||
+        (item.status || '').toLowerCase().includes(q) ||
+        (item.idProofNumber || '').toLowerCase().includes(q)
+      );
+    });
+
+  const filteredNFTs = nftsList.filter(item => {
+    const q = (nftSearchQuery || '').toLowerCase();
+    const metaStr = typeof item.metadata === 'string' ? item.metadata : JSON.stringify(item.metadata || {});
+    return (
+      (item.tokenId || '').toLowerCase().includes(q) ||
+      (item.assetName || '').toLowerCase().includes(q) ||
+      (item.assetId || '').toLowerCase().includes(q) ||
+      (item.assetType || '').toLowerCase().includes(q) ||
+      (item.ownerDID || '').toLowerCase().includes(q) ||
+      (item.custodian || '').toLowerCase().includes(q) ||
+      (item.department || '').toLowerCase().includes(q) ||
+      (item.location || '').toLowerCase().includes(q) ||
+      (item.status || '').toLowerCase().includes(q) ||
+      metaStr.toLowerCase().includes(q)
     );
+  });
 
-  const filteredNFTs = nftsList.filter(item =>
-    (item.tokenId || '').toLowerCase().includes(nftSearchQuery.toLowerCase()) ||
-    (item.assetName || '').toLowerCase().includes(nftSearchQuery.toLowerCase()) ||
-    (item.ownerDID || '').toLowerCase().includes(nftSearchQuery.toLowerCase())
-  );
+  const filteredAudits = auditList.filter(item => {
+    // Activity separation filter (All vs Asset Operations vs Identity & Security)
+    if (activityFilter === 'ASSET' && !isAssetLog(item)) return false;
+    if (activityFilter === 'IDENTITY_SECURITY' && isAssetLog(item)) return false;
 
-  const filteredAudits = auditList.filter(item =>
-    (item.action || '').toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
-    (item.resourceId || '').toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
-    (item.actorDID || '').toLowerCase().includes(auditSearchQuery.toLowerCase())
-  );
+    if (!auditSearchQuery.trim()) return true;
+    const q = auditSearchQuery.toLowerCase().trim();
+    const cat = getLogCategoryDetails(item);
+    return (
+      (item.action || '').toLowerCase().includes(q) ||
+      (item.resourceId || '').toLowerCase().includes(q) ||
+      (item.actorDID || '').toLowerCase().includes(q) ||
+      (item.actorName || '').toLowerCase().includes(q) ||
+      (item.actorRole || '').toLowerCase().includes(q) ||
+      (item.details || '').toLowerCase().includes(q) ||
+      (item.eventId || '').toLowerCase().includes(q) ||
+      (item.result || '').toLowerCase().includes(q) ||
+      (item.txId || '').toLowerCase().includes(q) ||
+      (item.policyRule || '').toLowerCase().includes(q) ||
+      (item.blockNumber ? String(item.blockNumber) : '').toLowerCase().includes(q) ||
+      (cat?.badge || '').toLowerCase().includes(q) ||
+      (cat?.label || '').toLowerCase().includes(q)
+    );
+  });
 
   // Tab Breadcrumb text mapping
   const getTabLabel = (tabKey) => {
@@ -873,28 +933,32 @@ export default function AdminView({
                     <h3 className="card-title">Create Account &amp; Provision Identity</h3>
                     <p className="card-desc">Sole Administrative authority to create verified accounts for Users, Managers, and Auditors.</p>
                   </div>
-                  <span className="badge badge-accent">🛡️ Admin Authority Only</span>
+                  <span className="badge badge-accent">Admin Authority Only</span>
                 </div>
 
                 {/* Exclusive Policy Notice */}
                 <div className="admin-governance-notice">
-                  <span className="notice-icon">🛡️</span>
+                  <span className="notice-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                  </span>
                   <div>
                     <strong>Enterprise Security Policy:</strong> In BlockShield, the System Administrator is the <u>sole authority</u> authorized to create accounts and issue DIDs on Hyperledger Fabric for every <strong>User</strong>, <strong>Manager</strong>, and <strong>Auditor</strong>.
                   </div>
                 </div>
 
                 <form onSubmit={handleCreateDID} className="form-layout">
-                  {/* Step 1: Select Target Role */}
+                  {/* Target Account Role */}
                   <div className="form-group">
-                    <label className="label">1. Target Account Role:</label>
+                    <label className="label">Target Account Role:</label>
                     <div className="role-chips-grid">
                       <button
                         type="button"
                         className={`role-chip-btn ${newRoleInput === 'USER' ? 'active' : ''}`}
                         onClick={() => setNewRoleInput('USER')}
                       >
-                        <span>👤 USER</span>
+                        <span>USER</span>
                         <span className="role-chip-desc">Standard Client / Personnel</span>
                       </button>
                       <button
@@ -902,7 +966,7 @@ export default function AdminView({
                         className={`role-chip-btn ${newRoleInput === 'MANAGER' ? 'active' : ''}`}
                         onClick={() => setNewRoleInput('MANAGER')}
                       >
-                        <span>💼 MANAGER</span>
+                        <span>MANAGER</span>
                         <span className="role-chip-desc">Asset Allocator &amp; Verifier</span>
                       </button>
                       <button
@@ -910,43 +974,43 @@ export default function AdminView({
                         className={`role-chip-btn ${newRoleInput === 'AUDITOR' ? 'active' : ''}`}
                         onClick={() => setNewRoleInput('AUDITOR')}
                       >
-                        <span>🔍 AUDITOR</span>
+                        <span>AUDITOR</span>
                         <span className="role-chip-desc">Forensic &amp; Compliance Inspector</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Step 2: Select User Category */}
+                  {/* User Category & Clearance Profile */}
                   <div className="form-group">
-                    <label className="label">2. User Category / Clearance Profile:</label>
+                    <label className="label">User Category &amp; Clearance Profile:</label>
                     <div className="category-tabs-row">
                       <button
                         type="button"
                         className={`category-tab-btn ${adminUserCategory === 'DEFENCE' ? 'active' : ''}`}
                         onClick={() => handleAdminCategoryChange('DEFENCE')}
                       >
-                        🛡️ Defence / Government
+                        Defence / Government
                       </button>
                       <button
                         type="button"
                         className={`category-tab-btn ${adminUserCategory === 'SOFTWARE' ? 'active' : ''}`}
                         onClick={() => handleAdminCategoryChange('SOFTWARE')}
                       >
-                        💻 Software / Technology
+                        Software / Technology
                       </button>
                       <button
                         type="button"
                         className={`category-tab-btn ${adminUserCategory === 'NON_DEFENCE' ? 'active' : ''}`}
                         onClick={() => handleAdminCategoryChange('NON_DEFENCE')}
                       >
-                        🌐 Non-Defence
+                        Non-Defence
                       </button>
                     </div>
 
                     {/* Proof Requirements Guide Box */}
                     <div className="proof-rules-box">
                       <div className="proof-rules-header">
-                        <span>📋</span> Required Verification Proofs for {adminUserCategory.replace('_', ' ')}:
+                        Required Verification Proofs for {adminUserCategory.replace('_', ' ')}:
                       </div>
                       {adminUserCategory === 'DEFENCE' && (
                         <div className="proof-rules-item">
@@ -988,15 +1052,47 @@ export default function AdminView({
 
                     <div className="form-group">
                       <label className="label">Initial Account Password:</label>
-                      <input
-                        type="text"
-                        className="input"
-                        value={adminUserPassword}
-                        onChange={(e) => setAdminUserPassword(e.target.value)}
-                        placeholder="Default: password123"
-                        required
-                      />
-                      <p className="text-xs text-muted mt-1">Temporary password provisioned for initial login.</p>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type={showAdminPassword ? 'text' : 'password'}
+                          className="input"
+                          value={adminUserPassword}
+                          onChange={(e) => setAdminUserPassword(e.target.value)}
+                          style={{ paddingRight: '42px' }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAdminPassword(!showAdminPassword)}
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#64748b',
+                            padding: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title={showAdminPassword ? 'Hide password' : 'View password'}
+                          aria-label={showAdminPassword ? 'Hide password' : 'View password'}
+                        >
+                          {showAdminPassword ? (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                              <line x1="1" y1="1" x2="23" y2="23"/>
+                            </svg>
+                          ) : (
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                              <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted mt-1">Default temporary password: <code>password123</code></p>
                     </div>
                   </div>
 
@@ -1136,13 +1232,13 @@ export default function AdminView({
                         className="btn btn-secondary btn-nowrap"
                         onClick={handleGenKeyPair}
                       >
-                        🔑 Generate Keypair
+                        Generate Keypair
                       </button>
                     </div>
                   </div>
 
                   <button type="submit" className="btn btn-primary btn-block">
-                    🛡️ Create &amp; Issue {newRoleInput} Account on Ledger
+                    Create &amp; Issue {newRoleInput} Account on Ledger
                   </button>
                 </form>
               </div>
@@ -1195,7 +1291,7 @@ export default function AdminView({
                                 <span className="text-muted text-xs">REVOKED</span>
                               ) : item.role === 'ADMIN' ? (
                                 <span className="text-muted text-xs font-mono font-bold" title="Admin role is protected and cannot be changed">
-                                  🔒 ADMIN (Protected)
+                                  ADMIN (Protected)
                                 </span>
                               ) : (
                                 <select
@@ -1759,7 +1855,10 @@ export default function AdminView({
           {activeTab === 'audit-trail' && (
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Immutable Ledger Audit Trail</h3>
+                <div>
+                  <h3 className="card-title">Immutable Ledger Audit Trail</h3>
+                  <p className="text-xs text-muted">Complete cryptographic activity trail across assets, identities, and governance.</p>
+                </div>
                 <div className="flex-gap">
                   <input
                     type="text"
@@ -1772,34 +1871,172 @@ export default function AdminView({
                 </div>
               </div>
 
+              {/* Activity Separation Options (All Activities vs Asset Operations vs Identity & Security) */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('ALL')}
+                  className={`btn btn-xs ${activityFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontWeight: activityFilter === 'ALL' ? 700 : 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>All Activities</span>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: activityFilter === 'ALL' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activityFilter === 'ALL' ? '#ffffff' : '#475569',
+                    padding: '1px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {auditList.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('ASSET')}
+                  className={`btn btn-xs ${activityFilter === 'ASSET' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontWeight: activityFilter === 'ASSET' ? 700 : 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>Asset Operations</span>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: activityFilter === 'ASSET' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activityFilter === 'ASSET' ? '#ffffff' : '#475569',
+                    padding: '1px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {auditList.filter(isAssetLog).length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('IDENTITY_SECURITY')}
+                  className={`btn btn-xs ${activityFilter === 'IDENTITY_SECURITY' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontWeight: activityFilter === 'IDENTITY_SECURITY' ? 700 : 500,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>Identity &amp; Security</span>
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: activityFilter === 'IDENTITY_SECURITY' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                    color: activityFilter === 'IDENTITY_SECURITY' ? '#ffffff' : '#475569',
+                    padding: '1px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {auditList.filter(l => !isAssetLog(l)).length}
+                  </span>
+                </button>
+              </div>
+
               <div className="table-responsive">
                 <table className="data-table">
                   <thead>
                     <tr>
                       <th>Timestamp</th>
+                      <th>Category</th>
                       <th>Action</th>
                       <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
+                      <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAudits.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="empty-table-cell">
+                        <td colSpan="7" className="empty-table-cell">
                           <p className="text-muted">No audit transactions recorded yet</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredAudits.map((log, idx) => (
-                        <tr key={idx}>
-                          <td className="text-sm">{log.timestamp ? new Date(Number(log.timestamp) * 1000).toLocaleString() : 'N/A'}</td>
-                          <td><span className="action-pill">{log.action}</span></td>
-                          <td><code>{log.resourceId}</code></td>
-                          <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
-                          <td><code>{log.actorDID}</code></td>
-                        </tr>
-                      ))
+                      filteredAudits.map((log, idx) => {
+                        const cat = getLogCategoryDetails(log);
+                        return (
+                          <tr key={log.eventId || idx} style={{ cursor: 'pointer' }} onClick={() => setSelectedAuditLog(log)}>
+                            <td className="text-sm">
+                              <div>{log.timestamp ? (Number(log.timestamp) > 10000000000 ? new Date(Number(log.timestamp)).toLocaleString() : new Date(Number(log.timestamp) * 1000).toLocaleString()) : 'N/A'}</div>
+                              {log.blockNumber && <span className="type-pill" style={{ fontSize: '0.65rem', marginTop: '2px', display: 'inline-block' }}>Block #{log.blockNumber}</span>}
+                            </td>
+                            <td>
+                              <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                background: cat.bg,
+                                color: cat.color,
+                                border: `1px solid ${cat.border}`,
+                                display: 'inline-block',
+                                whiteSpace: 'nowrap',
+                                letterSpacing: '0.03em'
+                              }}>
+                                {cat.badge}
+                              </span>
+                            </td>
+                            <td><span className="action-pill">{log.action}</span></td>
+                            <td><code>{log.resourceId}</code></td>
+                            <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
+                            <td>
+                              <code>{log.actorDID}</code>
+                              {log.actorName && <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{log.actorName} ({log.actorRole})</div>}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAuditLog(log);
+                                }}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontWeight: 600,
+                                  fontSize: '0.78rem',
+                                  borderColor: '#2563eb',
+                                  color: '#2563eb',
+                                  background: '#eff6ff',
+                                  cursor: 'pointer',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title="View audit details"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                  <line x1="16" y1="13" x2="8" y2="13"/>
+                                  <line x1="16" y1="17" x2="8" y2="17"/>
+                                </svg>
+                                <span>View Details</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1808,6 +2045,15 @@ export default function AdminView({
           )}
         </div>
       </main>
+
+      {/* Audit Log Details Modal */}
+      {selectedAuditLog && (
+        <ForensicEvidenceModal
+          isOpen={!!selectedAuditLog}
+          log={selectedAuditLog}
+          onClose={() => setSelectedAuditLog(null)}
+        />
+      )}
     </div>
   );
 }
