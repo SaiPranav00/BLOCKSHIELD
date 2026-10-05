@@ -192,17 +192,15 @@ export default function CentralPortal({
             ))}
           </div>
 
-          {/* Footer tokens */}
+          {/* Footer compliance notice */}
           <footer className="portal-token-footer">
-            <span>BHARAT ELECTRONICS LIMITED</span>
-            <span className="token-dot">•</span>
-            <span>SOVEREIGN IDENTITY</span>
-            <span className="token-dot">•</span>
-            <span>HYPERLEDGER FABRIC</span>
-            <span className="token-dot">•</span>
-            <span>ZERO-TRUST RBAC</span>
-            <span className="token-dot">•</span>
-            <span>FORENSIC AUDIT</span>
+            <div className="token-footer-row">
+              <span>Restricted Access</span>
+              <span className="token-dot">•</span>
+              <span>Bharat Electronics Limited</span>
+              <span className="token-dot">•</span>
+              <span>Authorized Personnel Only</span>
+            </div>
           </footer>
         </div>
       </main>
