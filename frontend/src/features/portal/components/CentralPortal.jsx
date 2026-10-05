@@ -10,10 +10,16 @@ export default function CentralPortal({
   const roles = [
     {
       id: 'ADMIN',
-      title: 'Admin',
-      desc: 'Platform control and security administration.',
+      title: 'Administrator',
+      desc: 'Platform control, sovereign DID governance, policy enforcement, and ledger provisioning authority.',
       isPrimaryBtn: true,
       iconBgClass: 'icon-bg-admin',
+      badge: 'Platform Control',
+      bullets: [
+        'Sovereign DID provisioning & revocation',
+        'Zero-trust role & clearance enforcement',
+        'Hyperledger Fabric ledger control',
+      ],
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -23,10 +29,16 @@ export default function CentralPortal({
     },
     {
       id: 'MANAGER',
-      title: 'Manager',
-      desc: 'Asset stewardship, requests, and approvals.',
+      title: 'Operations Manager',
+      desc: 'Department asset stewardship, custody allocation, and transfer approval workflows.',
       isPrimaryBtn: false,
       iconBgClass: 'icon-bg-manager',
+      badge: 'Asset Stewardship',
+      bullets: [
+        'Department hardware custody allocations',
+        'Custody transfer review & approvals',
+        'Equipment provenance & lifecycle tracking',
+      ],
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -37,27 +49,20 @@ export default function CentralPortal({
     },
     {
       id: 'AUDITOR',
-      title: 'Auditor',
-      desc: 'Audit records, evidence, and compliance review.',
+      title: 'Compliance Auditor',
+      desc: 'Forensic evidence review, cryptographic audit verification, and regulatory compliance inspection.',
       isPrimaryBtn: false,
       iconBgClass: 'icon-bg-auditor',
+      badge: 'Forensic Audit',
+      bullets: [
+        'Cryptographic forensic evidence inspection',
+        'Chaincode transaction proof verification',
+        'Five-Ws immutable audit trail review',
+      ],
       icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="7" />
           <line x1="21" y1="21" x2="16.5" y2="16.5" />
-        </svg>
-      ),
-    },
-    {
-      id: 'USER',
-      title: 'User',
-      desc: 'Your verified identity, access, and assets.',
-      isPrimaryBtn: false,
-      iconBgClass: 'icon-bg-user',
-      icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
         </svg>
       ),
     },
@@ -70,7 +75,7 @@ export default function CentralPortal({
       {/* ─── Top Navigation Bar ─── */}
       <header className="portal-navbar">
         <div className="portal-navbar-inner">
-          <div className="portal-brand" onClick={() => {}}>
+          <div className="portal-brand" title="Bharat Electronics Limited • BlockShield Ledger">
             <img
               src={blockshieldLogo}
               alt="BlockShield"
@@ -78,7 +83,7 @@ export default function CentralPortal({
             />
             <div className="portal-brand-meta">
               <span className="portal-brand-name">BLOCKSHIELD</span>
-              <span className="portal-brand-sub">Secure Identity &amp; Asset Management</span>
+              <span className="portal-brand-sub">Bharat Electronics Limited • Sovereign Defence Ledger</span>
             </div>
           </div>
 
@@ -100,7 +105,7 @@ export default function CentralPortal({
               <span className="status-dot-ring">
                 <span className="status-dot-core"></span>
               </span>
-              <span>{isOnline ? 'System secure' : 'Offline'}</span>
+              <span>{isOnline ? 'Sovereign Fabric Ledger • Active' : 'Offline'}</span>
             </div>
           </div>
         </div>
@@ -115,33 +120,32 @@ export default function CentralPortal({
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               <path d="m9 12 2 2 4-4" />
             </svg>
-            <span>BLOCKCHAIN-BACKED PROTECTION</span>
+            <span>ENTERPRISE GOVERNANCE &amp; SOVEREIGN OPERATIONS</span>
           </div>
 
-          {/* Headline */}
+          {/* Main Headline */}
           <h1 className="portal-headline">
-            <span className="headline-word">SOVEREIGN.</span>{' '}
-            <span className="headline-word">TAMPER-PROOF.</span>{' '}
-            <span className="headline-word">VERIFIABLE.</span>
+            Bharat Electronics Limited
           </h1>
 
-          {/* Subtitles */}
+          {/* Subtitle / Motto */}
           <p className="portal-lead">
-            Enterprise Blockchain Trust Infrastructure for Defence, Technology &amp; Sovereign Operations
+            PROTECT THE IDENTITY AND PROVE THE AUTHORITY
           </p>
+
           <p className="portal-sublead">
-            One unified platform for decentralized identity (DID), zero-trust access governance, and tokenized asset custody on Hyperledger Fabric.
+            Decentralized identity governance, zero-trust RBAC access control, and tokenized hardware asset custody on Hyperledger Fabric.
           </p>
 
           {/* Section divider */}
           <div className="portal-section-rule">
             <span className="rule-line"></span>
-            <h2 className="rule-label">Choose your workspace</h2>
+            <h2 className="rule-label">Enterprise Governance Workspaces</h2>
             <span className="rule-line"></span>
           </div>
 
-          {/* ─── Workspace Cards ─── */}
-          <div className="portal-cards-grid">
+          {/* ─── Workspace Cards Grid (Admin, Manager, Auditor) ─── */}
+          <div className="portal-cards-grid portal-cards-grid-three">
             {roles.map((r) => (
               <article
                 key={r.id}
@@ -157,17 +161,32 @@ export default function CentralPortal({
                 }}
                 aria-label={`${r.title} workspace — ${r.desc}`}
               >
-                <div className={`portal-card-icon ${r.iconBgClass}`}>
-                  {r.icon}
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div className={`portal-card-icon ${r.iconBgClass}`} style={{ margin: 0 }}>
+                    {r.icon}
+                  </div>
+                  <span className={`portal-role-tag tag-${r.id.toLowerCase()}`}>
+                    {r.badge}
+                  </span>
                 </div>
                 <h3 className="portal-card-title">{r.title}</h3>
                 <p className="portal-card-desc">{r.desc}</p>
+
+                <ul className="portal-card-bullets">
+                  {r.bullets.map((b, i) => (
+                    <li key={i} className="portal-card-bullet">
+                      <span className="portal-bullet-dot"></span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+
                 <button
                   type="button"
-                  className={`portal-card-btn ${r.isPrimaryBtn ? 'btn-filled' : 'btn-ghost'}`}
+                  className="portal-card-btn btn-filled"
                   onClick={(e) => { e.stopPropagation(); onSelectRole?.(r.id); }}
                 >
-                  Continue <span className="btn-arrow">→</span>
+                  Enter Workspace <span className="btn-arrow">→</span>
                 </button>
               </article>
             ))}
@@ -175,13 +194,15 @@ export default function CentralPortal({
 
           {/* Footer tokens */}
           <footer className="portal-token-footer">
-            <span>IDENTITY</span>
+            <span>BHARAT ELECTRONICS LIMITED</span>
             <span className="token-dot">•</span>
-            <span>ACCESS</span>
+            <span>SOVEREIGN IDENTITY</span>
             <span className="token-dot">•</span>
-            <span>ASSETS</span>
+            <span>HYPERLEDGER FABRIC</span>
             <span className="token-dot">•</span>
-            <span>AUDIT</span>
+            <span>ZERO-TRUST RBAC</span>
+            <span className="token-dot">•</span>
+            <span>FORENSIC AUDIT</span>
           </footer>
         </div>
       </main>

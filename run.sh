@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  BLOCKSHIELD: Standalone Sovereign Frontend Startup Script (SIH26125)
-#  Runs the BlockShield platform with 100% self-contained local cryptographic
-#  ledger and full functionality. Zero Docker, Zero MongoDB, Zero backend needed!
+#  BLOCKSHIELD: Standalone Sovereign Startup Script (SIH26125)
+#  Runs both the Public User Portal (Port 5173) and the Enterprise Governance
+#  Portal (Port 5174) concurrently with full functionality.
 # ==============================================================================
 
 set -e
@@ -19,7 +19,8 @@ NC="\033[0m"
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${PROJECT_ROOT}/frontend"
-PORT="${PORT:-5173}"
+USER_PORT="${USER_PORT:-5173}"
+ENTERPRISE_PORT="${ENTERPRISE_PORT:-5174}"
 
 echo -e "${CYAN}${BOLD}"
 echo "========================================================================"
@@ -52,28 +53,62 @@ else
     echo -e "${GREEN}  ✓ Dependencies installed in frontend/node_modules${NC}"
 fi
 
-# 3. Launch Vite server
-echo -e "\n${BLUE}[3/3] Starting Standalone Sovereign Web Application...${NC}"
+# 3. Clean up existing processes on the target ports
+echo -e "\n${BLUE}[3/3] Initializing dual portal servers...${NC}"
+
+if command -v lsof &> /dev/null; then
+    lsof -ti:"${USER_PORT}" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    lsof -ti:"${ENTERPRISE_PORT}" 2>/dev/null | xargs kill -9 2>/dev/null || true
+elif command -v fuser &> /dev/null; then
+    fuser -k "${USER_PORT}/tcp" 2>/dev/null || true
+    fuser -k "${ENTERPRISE_PORT}/tcp" 2>/dev/null || true
+fi
+
+# Cleanup function to kill background processes on exit
+cleanup() {
+    echo -e "\n${YELLOW}Stopping BlockShield servers...${NC}"
+    if [ -n "${PID_USER}" ] && kill -0 "${PID_USER}" 2>/dev/null; then
+        kill "${PID_USER}" 2>/dev/null || true
+    fi
+    if [ -n "${PID_ENTERPRISE}" ] && kill -0 "${PID_ENTERPRISE}" 2>/dev/null; then
+        kill "${PID_ENTERPRISE}" 2>/dev/null || true
+    fi
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM EXIT
+
+# 3A. Start User Portal on Port 5173
+npx vite --host 0.0.0.0 --port "${USER_PORT}" &
+PID_USER=$!
+
+# 3B. Start Enterprise Governance Portal on Port 5174
+npx vite --host 0.0.0.0 --port "${ENTERPRISE_PORT}" &
+PID_ENTERPRISE=$!
+
+sleep 1.5
+
 echo -e "${PURPLE}${BOLD}"
 echo "------------------------------------------------------------------------"
-echo "  🚀 PLATFORM READY & RUNNING IN STANDALONE SOVEREIGN MODE"
+echo "  🚀 PLATFORMS READY & RUNNING CONCURRENTLY"
 echo "------------------------------------------------------------------------"
 echo -e "${NC}"
-echo -e "  ${BOLD}🌐 Application URL:${NC}    ${CYAN}http://localhost:${PORT}${NC}"
-echo -e "  ${BOLD}⚡ Execution Mode:${NC}     ${GREEN}100% Standalone (Built-in Cryptographic Ledger)${NC}"
-echo -e "  ${BOLD}📦 External Stack:${NC}     ${YELLOW}Zero Docker / Zero MongoDB / Zero Backend Required${NC}"
+echo -e "  ${BOLD}🌐 Public User Portal (Main):${NC}    ${CYAN}http://localhost:${USER_PORT}${NC}  (Dedicated End-User Page)"
+echo -e "  ${BOLD}🛡️  Enterprise Governance Portal:${NC} ${PURPLE}http://localhost:${ENTERPRISE_PORT}${NC} (Admin, Manager, Auditor)"
+echo -e "  ${BOLD}⚡ Execution Mode:${NC}                ${GREEN}100% Standalone (Built-in Cryptographic Ledger)${NC}"
+echo -e "  ${BOLD}📦 External Stack:${NC}                ${YELLOW}Zero Docker / Zero MongoDB / Zero Backend Required${NC}"
 echo ""
-echo -e "  ${BOLD}🔐 Default Demo Credentials (All Roles Ready):${NC}"
-echo -e "     • ${BLUE}Administrator:${NC}    Username: ${BOLD}ADMIN001${NC}    | Password: ${BOLD}password123${NC}"
-echo -e "     • ${CYAN}Manager:${NC}          Username: ${BOLD}MANAGER001${NC}  | Password: ${BOLD}password123${NC}"
-echo -e "     • ${PURPLE}Auditor:${NC}          Username: ${BOLD}AUDITOR001${NC}  | Password: ${BOLD}password123${NC}"
-echo -e "     • ${GREEN}Custodian User:${NC}   Username: ${BOLD}USER001${NC}     | Password: ${BOLD}password123${NC}"
+echo -e "  ${BOLD}🔐 Role Demo Credentials (Strictly Isolated by Role):${NC}"
+echo -e "     • ${GREEN}Custodian User (Port ${USER_PORT}):${NC}  Username: ${BOLD}USER001${NC}     | Password: ${BOLD}password123${NC}"
+echo -e "     • ${BLUE}Administrator (Port ${ENTERPRISE_PORT}):${NC}   Username: ${BOLD}ADMIN001${NC}    | Password: ${BOLD}password123${NC}"
+echo -e "     • ${CYAN}Manager (Port ${ENTERPRISE_PORT}):${NC}         Username: ${BOLD}MANAGER001${NC}  | Password: ${BOLD}password123${NC}"
+echo -e "     • ${PURPLE}Auditor (Port ${ENTERPRISE_PORT}):${NC}         Username: ${BOLD}AUDITOR001${NC}  | Password: ${BOLD}password123${NC}"
 echo ""
 echo -e "  ${YELLOW}${BOLD}⚠️  Admin Governance Notice:${NC}"
 echo -e "     When new users submit registration requests, the ${BOLD}Administrator${NC}"
 echo -e "     must manually approve them in the Admin Portal before they can log in."
 echo ""
 echo -e "------------------------------------------------------------------------"
-echo -e "${YELLOW}Press Ctrl+C at any time to stop the server.${NC}\n"
+echo -e "${YELLOW}Press Ctrl+C at any time to stop both servers.${NC}\n"
 
-exec npm run dev -- --host 0.0.0.0 --port "${PORT}"
+wait "${PID_USER}" "${PID_ENTERPRISE}"

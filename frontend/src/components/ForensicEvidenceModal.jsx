@@ -360,7 +360,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                     Operation &amp; Target
                   </span>
                 </div>
-                <span className="action-pill" style={{ fontSize: '0.72rem' }}>{what.action}</span>
+                <span className="action-pill" style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{(what.action || '').replace(/_/g, ' ')}</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>

@@ -77,6 +77,7 @@ export default function AdminView({
   const [denyingDid, setDenyingDid] = useState(null);
   const [denialReasonInput, setDenialReasonInput] = useState('');
   const [processingApproval, setProcessingApproval] = useState(false);
+  const [inspectingAccount, setInspectingAccount] = useState(null);
 
   // Sub-tab selection under Identities tab: 'directory' | 'pending' | 'create'
   const [identitySubTab, setIdentitySubTab] = useState('directory');
@@ -1047,7 +1048,7 @@ export default function AdminView({
                             </div>
                             <div className="admin-activity-content">
                               <span className="admin-activity-title">
-                                {item.action || 'LEDGER_TRANSACTION'}
+                                {(item.action || 'LEDGER_TRANSACTION').replace(/_/g, ' ')}
                               </span>
                               <span className="admin-activity-subtext">
                                 {item.resourceId ? `Resource: ${item.resourceId}` : ''} {item.actorDID ? `· ${item.actorDID}` : ''}
@@ -1188,7 +1189,7 @@ export default function AdminView({
                             <th>Role Requested</th>
                             <th>Category &amp; Proof</th>
                             <th>Department</th>
-                            <th style={{ textAlign: 'center', width: '200px' }}>Admin Decision</th>
+                            <th style={{ textAlign: 'center', width: '270px' }}>Admin Decision &amp; Verification</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1226,7 +1227,25 @@ export default function AdminView({
                                   <div style={{ fontSize: '0.7rem', color: '#0284c7' }}>{orgStr}</div>
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
-                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-outline"
+                                      style={{
+                                        color: '#0284c7',
+                                        borderColor: '#38bdf8',
+                                        background: '#f0f9ff',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontWeight: 700,
+                                        padding: '5px 9px'
+                                      }}
+                                      onClick={() => setInspectingAccount(account)}
+                                      title="View full registration details, applicant proofs and metadata"
+                                    >
+                                      <span>📄 Details</span>
+                                    </button>
                                     <button
                                       type="button"
                                       className="btn btn-xs btn-primary"
@@ -1237,7 +1256,7 @@ export default function AdminView({
                                         alignItems: 'center',
                                         gap: '4px',
                                         fontWeight: 700,
-                                        padding: '5px 12px'
+                                        padding: '5px 10px'
                                       }}
                                       onClick={() => handleApproveAccount(account.did)}
                                       disabled={processingApproval}
@@ -1255,7 +1274,7 @@ export default function AdminView({
                                         alignItems: 'center',
                                         gap: '4px',
                                         fontWeight: 700,
-                                        padding: '5px 10px'
+                                        padding: '5px 8px'
                                       }}
                                       onClick={() => setDenyingDid(account.did)}
                                       disabled={processingApproval}
@@ -1668,7 +1687,7 @@ export default function AdminView({
                         <th>DID</th>
                         <th>Role</th>
                         <th>Status</th>
-                        <th>Change Role</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1733,20 +1752,10 @@ export default function AdminView({
                                 </div>
                               ) : item.status === 'REVOKED' ? (
                                 <span className="text-muted text-xs">REVOKED</span>
-                              ) : item.role === 'ADMIN' ? (
-                                <span className="text-muted text-xs font-mono font-bold" title="Admin role is protected and cannot be changed">
-                                  ADMIN (Protected)
-                                </span>
                               ) : (
-                                <select
-                                  className="select select-xs"
-                                  value={item.role}
-                                  onChange={(e) => handleInlineRoleChange(item.did, e.target.value)}
-                                >
-                                  <option value="USER">USER</option>
-                                  <option value="MANAGER">MANAGER</option>
-                                  <option value="AUDITOR">AUDITOR</option>
-                                </select>
+                                <span className="text-muted text-xs font-mono" style={{ color: '#64748b' }}>
+                                  Immutable
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -2615,7 +2624,11 @@ export default function AdminView({
                                 {cat.badge}
                               </span>
                             </td>
-                            <td><span className="action-pill">{log.action}</span></td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <span className="action-pill" style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                                {(log.action || '').replace(/_/g, ' ')}
+                              </span>
+                            </td>
                             <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
                             <td>
@@ -2807,6 +2820,192 @@ export default function AdminView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Full Account Registration Details Dossier Modal */}
+      {inspectingAccount && (
+        <div className="modal-backdrop" onClick={() => setInspectingAccount(null)}>
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '640px', width: '100%', padding: '24px', background: '#ffffff', borderRadius: '14px', maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span className="badge badge-amber" style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>Pending Review</span>
+                  <span className={`role-pill role-${(inspectingAccount.role || 'USER').toLowerCase()}`} style={{ fontWeight: 800 }}>
+                    {inspectingAccount.role}
+                  </span>
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>
+                  Applicant Registration Dossier
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                  Verification proofs submitted to Administrator for ledger account provisioning.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-modal-close"
+                onClick={() => setInspectingAccount(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Applicant Core Identity Section */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Full Name</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{inspectingAccount.name || inspectingAccount.username}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Username</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0284c7' }}>@{inspectingAccount.username}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Requested DID</div>
+                  <code style={{ fontSize: '0.74rem', color: '#0f172a' }}>{inspectingAccount.did}</code>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Submitted Timestamp</div>
+                  <div style={{ fontSize: '0.78rem', color: '#475569' }}>
+                    {inspectingAccount.createdAt ? new Date(inspectingAccount.createdAt).toLocaleString() : 'Recent Request'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Identity Proof Verification Section */}
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                1. Identity Verification &amp; Credentials
+              </h4>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>User Category</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1d4ed8' }}>
+                    {inspectingAccount.userCategory || 'DEFENCE / GOVERNMENT'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Document Type</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
+                    {inspectingAccount.idProofType || 'Government ID Card'}
+                  </div>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Document / Proof Number</div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#047857', fontFamily: 'var(--mono)' }}>
+                    {inspectingAccount.idProofNumber || 'VERIFIED-ID-PROVIDED'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Organization & Affiliation Proof Section */}
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                2. Organization &amp; Department Affiliation
+              </h4>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Department / Unit</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
+                    {inspectingAccount.department || inspectingAccount.orgProof?.department || 'Avionics / Radar Systems'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Official Service ID</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
+                    {inspectingAccount.orgProof?.serviceId || inspectingAccount.orgProof?.employeeId || 'BEL-SVC-2026'}
+                  </div>
+                </div>
+                {inspectingAccount.orgProof?.companyEmail && (
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Official Email</div>
+                    <div style={{ fontSize: '0.85rem', color: '#0284c7' }}>{inspectingAccount.orgProof.companyEmail}</div>
+                  </div>
+                )}
+                {inspectingAccount.orgProof?.orgName && (
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Organization / Agency</div>
+                    <div style={{ fontSize: '0.85rem', color: '#0f172a' }}>{inspectingAccount.orgProof.orgName}</div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Security Authorization Code</div>
+                  <code style={{ fontSize: '0.78rem', color: '#b45309', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
+                    {inspectingAccount.orgProof?.authCode || 'BEL-SEC-2026'}
+                  </code>
+                </div>
+              </div>
+            </div>
+
+            {/* Public Key Cryptographic Material */}
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                3. Sovereign Cryptographic Key Material
+              </h4>
+              <pre
+                style={{
+                  fontSize: '0.68rem',
+                  fontFamily: 'var(--mono)',
+                  background: '#0f172a',
+                  color: '#38bdf8',
+                  padding: '10px 14px',
+                  borderRadius: '6px',
+                  overflowX: 'auto',
+                  maxHeight: '90px',
+                  margin: 0
+                }}
+              >
+                {inspectingAccount.publicKey || '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----'}
+              </pre>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setInspectingAccount(null)}
+              >
+                Close Dossier
+              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ color: '#dc2626', borderColor: '#dc2626', fontWeight: 700 }}
+                  onClick={() => {
+                    setDenyingDid(inspectingAccount.did);
+                    setInspectingAccount(null);
+                  }}
+                  disabled={processingApproval}
+                >
+                  ✕ Deny Request
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 700 }}
+                  onClick={() => {
+                    handleApproveAccount(inspectingAccount.did);
+                    setInspectingAccount(null);
+                  }}
+                  disabled={processingApproval}
+                >
+                  ✓ Approve &amp; Issue DID
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

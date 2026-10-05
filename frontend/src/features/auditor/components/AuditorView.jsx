@@ -112,14 +112,18 @@ export default function AuditorView({
       cleanQuery = `NFT-${cleanQuery}`;
     }
 
+    const isIdentity = upper.startsWith('USER-') || upper.startsWith('ADMIN-') || upper.startsWith('MANAGER-') || cleanQuery.includes(':') || upper.startsWith('DID:');
+
     try {
-      const res = await getAuditLogsByResource(cleanQuery, 'AUDITOR');
+      const res = await getAuditLogsByResource(cleanQuery, { role: 'AUDITOR', assetOnly: !isIdentity });
       const data = res?.data || res || [];
-      const assetOnlyData = (Array.isArray(data) ? data : []).filter(isAssetLog);
-      setFilteredLogs(assetOnlyData);
+      const resultLogs = isIdentity
+        ? (Array.isArray(data) ? data : [])
+        : (Array.isArray(data) ? data : []).filter(isAssetLog);
+      setFilteredLogs(resultLogs);
       setActiveTab('filter-resource');
       setResourceSearch(cleanQuery);
-      notify(`Found ${assetOnlyData.length} asset audit entries for ${cleanQuery}`, 'success');
+      notify(`Found ${resultLogs.length} audit entries for ${cleanQuery}`, 'success');
     } catch (err) {
       const errMsg = err.message || '';
       const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
@@ -509,7 +513,7 @@ export default function AuditorView({
                         );
                       }
 
-                      const defaultTitle = isCreate ? 'Identity created' : isAlloc ? 'Asset allocated' : (item.action || 'Ledger event');
+                      const defaultTitle = isCreate ? 'Identity created' : isAlloc ? 'Asset allocated' : (item.action || 'Ledger event').replace(/_/g, ' ');
                       const resourceTarget = item.resourceId || item.entityId || 'Ledger';
                       const actor = item.actorDID ? item.actorDID.replace(/^did:trust:/, '').replace(/^did:sih26125:/, '') : (item.actor || 'System');
                       const timeAgo = item.timestamp
@@ -671,7 +675,11 @@ export default function AuditorView({
                               <div>{formattedTime}</div>
                               {log.blockNumber && <span className="type-pill" style={{ fontSize: '0.65rem', marginTop: '2px', display: 'inline-block' }}>Block #{log.blockNumber}</span>}
                             </td>
-                            <td><span className="type-pill">{log.action}</span></td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <span className="type-pill" style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                                {(log.action || '').replace(/_/g, ' ')}
+                              </span>
+                            </td>
                             <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td>
                               <span className={`status-pill ${isDenied ? 'status-revoked' : 'status-active'}`}>
@@ -802,21 +810,58 @@ export default function AuditorView({
               ────────────────────────────────────────────────────────── */}
           {activeTab === 'filter-resource' && (
             <div className="glass-card">
-              <h3 className="card-title mb-2">Resource &amp; Transaction Audit Lookup</h3>
+              <h3 className="card-title mb-2">Identity &amp; Resource History Lookup</h3>
               <p className="text-sm text-muted mb-4">
-                Query specific audit events tied to an asset Token ID (e.g. <code>NFT-1001</code>) or DID.
+                Select an identity (DID) or asset Token ID from the available fields to inspect its cryptographic history on the Fabric ledger.
               </p>
 
-              <form onSubmit={handleFilterResource} className="flex-gap mb-4 max-w-lg">
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Enter Token ID or DID (e.g. NFT-1001)..."
-                  value={resourceSearch}
-                  onChange={(e) => setResourceSearch(e.target.value)}
-                  required
-                />
-                <button type="submit" className="btn btn-primary">Search Audit Trail</button>
+              <form onSubmit={handleFilterResource} className="form-layout mb-4 max-w-xl">
+                <div className="form-group mb-3">
+                  <label className="label">Select Available Field (Identity / Asset):</label>
+                  <select
+                    className="select"
+                    value={resourceSearch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setResourceSearch(val);
+                      if (val) {
+                        handleFilterResource(null, val);
+                      }
+                    }}
+                  >
+                    <option value="">-- Choose an Available Identity or Asset --</option>
+                    <optgroup label="Registered Identities (DIDs)">
+                      {didsList.map((usr) => (
+                        <option key={usr.did} value={usr.did}>
+                          {usr.did} — {usr.name || usr.username || 'User'} ({usr.role || 'USER'} - {usr.department || 'General'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Tracked Sovereign Assets">
+                      {nftsList.map((asset) => (
+                        <option key={asset.tokenId} value={asset.tokenId}>
+                          {asset.tokenId} — {asset.assetName || asset.name} ({asset.assetType || 'HARDWARE'})
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div className="form-group mb-3">
+                  <label className="label">Or Query Custom DID, Token ID or TxID:</label>
+                  <div className="flex-gap">
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. did:sih26125:ADMIN001 or NFT-1004"
+                      value={resourceSearch}
+                      onChange={(e) => setResourceSearch(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                      Inspect History
+                    </button>
+                  </div>
+                </div>
               </form>
 
               {filteredLogs.length > 0 && (
@@ -826,7 +871,7 @@ export default function AuditorView({
                       <tr>
                         <th>Event ID</th>
                         <th>Timestamp</th>
-                        <th>Action</th>
+                        <th style={{ whiteSpace: 'nowrap' }}>Action</th>
                         <th>Result</th>
                         <th>Actor DID</th>
                         <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
@@ -837,7 +882,11 @@ export default function AuditorView({
                         <tr key={log.eventId || idx} className={log.result === 'DENIED' ? 'row-denied' : ''}>
                           <td><code>{log.eventId}</code></td>
                           <td className="text-xs" style={{ whiteSpace: 'nowrap' }}>{log.timestamp && !isNaN(log.timestamp) ? new Date(Number(log.timestamp) * 1000).toLocaleString() : log.timestamp}</td>
-                          <td><span className="type-pill">{log.action}</span></td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <span className="type-pill" style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                              {(log.action || '').replace(/_/g, ' ')}
+                            </span>
+                          </td>
                           <td><span className={`status-pill ${log.result === 'DENIED' ? 'status-revoked' : 'status-active'}`}>{log.result}</span></td>
                           <td><code>{log.actorDID}</code></td>
                           <td style={{ textAlign: 'center' }}>

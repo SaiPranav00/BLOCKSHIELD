@@ -86,6 +86,11 @@ export default function AdminLanding({ metrics, systemStatus, authUser, onEnterD
 
         {/* Greeting Title without 'Respected Administrator' */}
         <div className="admin-card-body">
+          <div className="portal-bel-banner" style={{ marginBottom: '14px' }}>
+            <span className="bel-banner-org" style={{ fontSize: '0.82rem', fontWeight: 800 }}>Bharat Electronics Limited</span>
+            <span className="bel-banner-rule">•</span>
+            <span className="bel-banner-motto" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>PROTECT THE IDENTITY AND PROVE THE AUTHORITY</span>
+          </div>
           <h1 className="admin-greeting-title">
             {greeting}, Admin
           </h1>

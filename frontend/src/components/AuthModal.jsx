@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import blockshieldLogo from '../assets/blockshield-logo.svg';
 import { loginUser, registerUserAcc } from '../services/api';
 import { DEMO_USERS } from '../constants/demoUsers';
 
-export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
+export default function AuthModal({ role = 'USER', onLoginSuccess, onClose, isPage = false }) {
   const targetRole = role || 'USER';
-  const defaultDemo = DEMO_USERS.find(u => u.role === targetRole) || DEMO_USERS[0];
+  // Strictly display only credentials matching the active role (Admin only Admin, Manager only Manager, etc.)
+  const filteredDemoUsers = DEMO_USERS.filter(u => u.role === targetRole);
+  const defaultDemo = filteredDemoUsers[0] || DEMO_USERS[0];
 
   const [mode, setMode] = useState('login'); // 'login' or 'register'
 
@@ -198,34 +201,36 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
     }
   };
 
-  return (
-    <div className="modal-backdrop">
-      <div className="modal-container auth-modal-box">
-        <form onSubmit={handleSubmit} className="modal-form-padded">
-          {/* Header Row */}
-          <div className="modal-header-row">
-            <div className="modal-title-group">
-              <span className="modal-kicker-tag">BLOCKSHIELD ENTERPRISE IDENTITY &amp; ACCESS</span>
-              <h2 className="auth-modal-title">
-                {mode === 'login' ? `${targetRole} Workspace Access` : `Request ${targetRole} Account (Admin Creation)`}
-              </h2>
-              <p className="modal-intro">
-                {mode === 'login'
-                  ? `Enter registered credentials to access the ${targetRole} workspace.`
-                  : `In accordance with BlockShield enterprise governance, only the System Administrator can create accounts and issue DIDs. Submit your verification proofs for Admin approval.`}
-              </p>
-            </div>
-            {onClose && (
-              <button
-                type="button"
-                className="btn-modal-close"
-                onClick={onClose}
-                aria-label="Close dialog"
-              >
-                ✕
-              </button>
-            )}
+  const modalContent = (
+    <form onSubmit={handleSubmit} className="modal-form-padded">
+      {/* Header Row */}
+      <div className="modal-header-row">
+        <div className="modal-title-group">
+          <div className="auth-bel-header">
+            <span className="auth-bel-org">Bharat Electronics Limited</span>
+            <span className="auth-bel-motto">PROTECT THE IDENTITY AND PROVE THE AUTHORITY</span>
           </div>
+          <span className="modal-kicker-tag">BLOCKSHIELD ENTERPRISE IDENTITY &amp; ACCESS</span>
+          <h2 className="auth-modal-title">
+            {mode === 'login' ? `${targetRole} Workspace Access` : `Request ${targetRole} Account (Admin Creation)`}
+          </h2>
+          <p className="modal-intro">
+            {mode === 'login'
+              ? `Enter registered credentials to access the ${targetRole} workspace.`
+              : `In accordance with BlockShield enterprise governance, accounts for ${targetRole} are provisioned by the Administrator. Role is auto-locked to ${targetRole} — no role selection needed.`}
+          </p>
+        </div>
+        {!isPage && onClose && (
+          <button
+            type="button"
+            className="btn-modal-close"
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
           {/* Mode Switch Segmented Tabs */}
           <div className="auth-segmented-tabs">
@@ -265,7 +270,7 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
               <div className="auth-demo-picker-box">
                 <span className="auth-demo-picker-label">Quick Demo Sign In:</span>
                 <div className="auth-demo-picker-chips">
-                  {DEMO_USERS.map((u) => (
+                  {filteredDemoUsers.map((u) => (
                     <button
                       key={u.id}
                       type="button"
@@ -461,57 +466,59 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
                 </div>
               </div>
 
-              {/* USER TYPE SELECTION */}
-              <div className="user-type-selector">
-                <label className="label">User Category &amp; Affiliation:</label>
-                <div className="user-type-grid">
-                  <button
-                    type="button"
-                    className={`user-type-card ${userCategory === 'DEFENCE' ? 'active' : ''}`}
-                    onClick={() => handleSelectCategory('DEFENCE')}
-                  >
-                    <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                      </svg>
-                    </div>
-                    <div className="user-type-title">Defence / Government</div>
-                    <div className="user-type-desc">BEL, Ministry of Defence, Armed Forces &amp; PSUs</div>
-                  </button>
+              {/* USER TYPE SELECTION - Only for User accounts; omitted for Admin, Manager, Auditor */}
+              {targetRole === 'USER' && (
+                <div className="user-type-selector">
+                  <label className="label">User Category &amp; Affiliation:</label>
+                  <div className="user-type-grid">
+                    <button
+                      type="button"
+                      className={`user-type-card ${userCategory === 'DEFENCE' ? 'active' : ''}`}
+                      onClick={() => handleSelectCategory('DEFENCE')}
+                    >
+                      <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                      </div>
+                      <div className="user-type-title">Defence / Government</div>
+                      <div className="user-type-desc">BEL, Ministry of Defence, Armed Forces &amp; PSUs</div>
+                    </button>
 
-                  <button
-                    type="button"
-                    className={`user-type-card ${userCategory === 'SOFTWARE' ? 'active' : ''}`}
-                    onClick={() => handleSelectCategory('SOFTWARE')}
-                  >
-                    <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                        <line x1="8" y1="21" x2="16" y2="21"/>
-                        <line x1="12" y1="17" x2="12" y2="21"/>
-                      </svg>
-                    </div>
-                    <div className="user-type-title">Software / Tech</div>
-                    <div className="user-type-desc">Defense engineering contractors &amp; tech partners</div>
-                  </button>
+                    <button
+                      type="button"
+                      className={`user-type-card ${userCategory === 'SOFTWARE' ? 'active' : ''}`}
+                      onClick={() => handleSelectCategory('SOFTWARE')}
+                    >
+                      <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                          <line x1="8" y1="21" x2="16" y2="21"/>
+                          <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                      </div>
+                      <div className="user-type-title">Software / Tech</div>
+                      <div className="user-type-desc">Defense engineering contractors &amp; tech partners</div>
+                    </button>
 
-                  <button
-                    type="button"
-                    className={`user-type-card ${userCategory === 'NON_DEFENCE' ? 'active' : ''}`}
-                    onClick={() => handleSelectCategory('NON_DEFENCE')}
-                  >
-                    <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="2" y1="12" x2="22" y2="12"/>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/>
-                      </svg>
-                    </div>
-                    <div className="user-type-title">Non-Defence</div>
-                    <div className="user-type-desc">Civilian, academic researchers &amp; general users</div>
-                  </button>
+                    <button
+                      type="button"
+                      className={`user-type-card ${userCategory === 'NON_DEFENCE' ? 'active' : ''}`}
+                      onClick={() => handleSelectCategory('NON_DEFENCE')}
+                    >
+                      <div className="user-type-icon" style={{ display: 'flex', alignItems: 'center', color: '#2563eb' }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="2" y1="12" x2="22" y2="12"/>
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                      </div>
+                      <div className="user-type-title">Non-Defence</div>
+                      <div className="user-type-desc">Civilian, academic researchers &amp; general users</div>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* IDENTITY PROOF */}
               <div className="form-section-box">
@@ -840,6 +847,30 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose }) {
             )}
           </div>
         </form>
+  );
+
+  if (isPage) {
+    return (
+      <div className="auth-page-wrapper">
+        <div className="auth-page-header">
+          <img src={blockshieldLogo} alt="BlockShield Logo" className="auth-page-logo" />
+          <div className="auth-page-meta">
+            <span className="auth-page-org">Bharat Electronics Limited</span>
+            <span className="auth-page-brand">BLOCKSHIELD</span>
+            <span className="auth-page-motto">PROTECT THE IDENTITY AND PROVE THE AUTHORITY</span>
+          </div>
+        </div>
+        <div className="modal-container auth-modal-box auth-page-container">
+          {modalContent}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-container auth-modal-box">
+        {modalContent}
       </div>
     </div>
   );

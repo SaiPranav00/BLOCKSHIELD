@@ -4,7 +4,7 @@ import { CentralPortal } from './features/portal';
 import { AdminLanding, AdminView } from './features/admin';
 import { ManagerView } from './features/manager';
 import { AuditorView } from './features/auditor';
-import { UserView } from './features/user';
+import { UserView, UserLanding } from './features/user';
 import { CommunicationChannel } from './features/communication';
 import ProvenanceModal from './components/ProvenanceModal';
 import AuthModal from './components/AuthModal';
@@ -39,25 +39,46 @@ function App() {
     return null;
   };
 
+  const isEnterprisePort = initialPort === '5174' || initialPort === '5175' || initialPort === '5176';
+
+  // URL & Path Routing Detection: support /enterprise, /portal, /admin, /user, etc.
+  const getPathView = () => {
+    if (typeof window === 'undefined') return null;
+    const p = window.location.pathname.toLowerCase();
+    const h = window.location.hash.toLowerCase();
+    const s = new URLSearchParams(window.location.search).get('view');
+    if (p === '/enterprise' || p === '/portal' || p === '/admin' || h === '#/enterprise' || h === '#/portal' || s === 'enterprise') {
+      return 'PORTAL';
+    }
+    if (p === '/user' || p === '/login' || p.startsWith('/user/') || h === '#/user' || h === '#user' || s === 'user') {
+      return 'USER_LANDING';
+    }
+    return null;
+  };
+
   const initialSession = getInitialSession();
   const savedView = getInitialView();
+  const pathView = getPathView();
 
-  const defaultPublicView = initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL';
-  const initialView = initialSession?.role
-    ? (savedView || initialSession.role)
-    : defaultPublicView;
+  // Port 5173 is the mainly exposed User Portal by default!
+  // Port 5174+ is the Enterprise Governance Portal (Admin, Manager, Auditor)
+  const defaultPublicView = isEnterprisePort ? 'PORTAL' : 'USER_LANDING';
+
+  const initialView = pathView
+    ? pathView
+    : (initialSession?.role
+      ? (savedView || initialSession.role)
+      : defaultPublicView);
 
   const initialRole = initialSession?.role || (
-    initialPort === '5174' ? 'ADMIN'
-    : 'USER'
+    isEnterprisePort ? 'ADMIN' : 'USER'
   );
 
   const initialDID = initialSession?.did || (
-    initialPort === '5174' ? 'did:sih26125:ADMIN001'
-    : 'did:sih26125:USER001'
+    isEnterprisePort ? 'did:sih26125:ADMIN001' : 'did:sih26125:USER001'
   );
 
-  // Navigation View State: 'PORTAL' (Central Landing), 'ADMIN_LANDING' (Admin Landing) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
+  // Navigation View State: 'USER_LANDING' (User Access Portal on port 5173), 'PORTAL' (Enterprise Governance on port 5174) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
   const [currentView, setCurrentView] = useState(initialView);
   const [activeRole, setActiveRole] = useState(initialRole);
   const [activeDID, setActiveDID] = useState(initialDID);
@@ -67,12 +88,25 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingRoleTarget, setPendingRoleTarget] = useState(null);
 
-  // Helper to persist view changes across page reloads (Ctrl+R)
-  const changeView = (newView) => {
+  // Helper to persist view changes across page reloads (Ctrl+R) and keep URL in sync
+  const changeView = (newView, replaceHistory = false) => {
     setCurrentView(newView);
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('blockshield_current_view', newView);
+      if (typeof window !== 'undefined') {
+        if (window.localStorage) {
+          window.localStorage.setItem('blockshield_current_view', newView);
+        }
+        let targetPath = '/';
+        if (newView === 'USER_LANDING') targetPath = isEnterprisePort ? '/user' : '/';
+        else if (newView === 'PORTAL') targetPath = isEnterprisePort ? '/' : '/enterprise';
+
+        if (window.location.pathname !== targetPath) {
+          if (replaceHistory) {
+            window.history.replaceState({ view: newView }, '', targetPath);
+          } else {
+            window.history.pushState({ view: newView }, '', targetPath);
+          }
+        }
       }
     } catch (_) {}
   };
@@ -157,10 +191,11 @@ function App() {
   };
 
   const handleLogout = () => {
+    const wasUser = !isEnterprisePort && (authUser?.role === 'USER' || activeRole === 'USER' || currentView === 'USER' || currentView === 'USER_LANDING');
     setAuthUser(null);
-    const targetDid = initialPort === '5174' ? 'did:sih26125:ADMIN001' : 'did:sih26125:USER001';
-    const targetRole = initialPort === '5174' ? 'ADMIN' : 'USER';
-    const targetView = initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL';
+    const targetDid = wasUser ? 'did:sih26125:USER001' : 'did:sih26125:ADMIN001';
+    const targetRole = wasUser ? 'USER' : 'ADMIN';
+    const targetView = wasUser ? 'USER_LANDING' : 'PORTAL';
     setActiveDID(targetDid);
     setActiveRole(targetRole);
     changeView(targetView);
@@ -176,8 +211,11 @@ function App() {
   };
 
   const handleReturnHome = () => {
-    const homeView = initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL';
-    changeView(homeView);
+    if (!isEnterprisePort && (activeRole === 'USER' || currentView === 'USER')) {
+      changeView('USER_LANDING');
+    } else {
+      changeView('PORTAL');
+    }
     fetchMetrics();
   };
 
@@ -216,15 +254,43 @@ function App() {
     };
   }, [activeRole, activeDID]);
 
+  // Handle browser popstate (Back/Forward navigation) and initial URL synchronization
+  useEffect(() => {
+    const handlePopState = (e) => {
+      const p = window.location.pathname.toLowerCase();
+      const h = window.location.hash.toLowerCase();
+      if (p === '/enterprise' || p === '/portal' || h === '#/enterprise') {
+        setCurrentView('PORTAL');
+      } else if (p === '/user' || p === '/login' || h === '#/user') {
+        setCurrentView('USER_LANDING');
+      } else if (p === '/' && !isEnterprisePort) {
+        setCurrentView('USER_LANDING');
+      } else if (p === '/' && isEnterprisePort) {
+        setCurrentView('PORTAL');
+      } else if (e.state?.view) {
+        setCurrentView(e.state.view);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isEnterprisePort]);
+
   // Security Guard: Prevent unauthenticated access to protected workspaces
   useEffect(() => {
-    if (!authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING') {
-      const fallback = initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL';
-      changeView(fallback);
-      setPendingRoleTarget(currentView);
-      setShowAuthModal(true);
+    if (!authUser && currentView !== 'PORTAL' && currentView !== 'USER_LANDING' && currentView !== 'ADMIN_LANDING') {
+      if (!isEnterprisePort && currentView === 'USER') {
+        changeView('USER_LANDING');
+      } else {
+        const fallback = isEnterprisePort ? 'PORTAL' : 'USER_LANDING';
+        changeView(fallback);
+        if (isEnterprisePort) {
+          setPendingRoleTarget(currentView);
+          setShowAuthModal(true);
+        }
+      }
     }
-  }, [authUser, currentView]);
+  }, [authUser, currentView, isEnterprisePort]);
 
   const handleMetricsUpdate = (newMetrics) => {
     setMetrics((prev) => ({ ...prev, ...newMetrics }));
@@ -240,12 +306,12 @@ function App() {
   };
 
   return (
-    <div className={`app-container ${currentView === 'PORTAL' ? 'portal-app-wrapper' : ''}`}>
+    <div className={`app-container ${(currentView === 'PORTAL' || currentView === 'USER_LANDING') ? 'portal-app-wrapper' : ''}`}>
       {/* Toast Alert Notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Global Header Bar (Shown when inside a workspace or dedicated page) */}
-      {currentView !== 'PORTAL' && (
+      {/* Global Header Bar (Shown when inside an active workspace) */}
+      {currentView !== 'PORTAL' && currentView !== 'USER_LANDING' && (
         <Header
           activeRole={activeRole}
           activeDID={activeDID}
@@ -262,7 +328,7 @@ function App() {
       {/* Main Viewport */}
       <ErrorBoundary>
         <main className="main-viewport">
-          {/* VIEW 1: Central Portal Landing Page (Port 5173 default) */}
+          {/* VIEW 1: Enterprise Governance Portal Landing Page (Admin, Manager, Auditor) */}
           {currentView === 'PORTAL' && (
             <CentralPortal
               metrics={metrics}
@@ -273,7 +339,18 @@ function App() {
             />
           )}
 
-          {/* VIEW 1B: Dedicated Admin Landing Page (Port 5174 default) */}
+          {/* VIEW 1B: Dedicated User Access Portal (Sign-in & Verification) */}
+          {currentView === 'USER_LANDING' && (
+            <UserLanding
+              metrics={metrics}
+              systemStatus={systemStatus}
+              authUser={authUser}
+              onLoginSuccess={handleLoginSuccess}
+              onLogout={handleLogout}
+            />
+          )}
+
+          {/* VIEW 1C: Dedicated Admin Landing Page (Port 5174 default) */}
           {currentView === 'ADMIN_LANDING' && (
             <AdminLanding
               metrics={metrics}
@@ -346,7 +423,7 @@ function App() {
       )}
 
       {/* Floating Chat Trigger Button - Only within authenticated role workspaces, NEVER on the landing page */}
-      {!showCommChannel && authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING' && (
+      {!showCommChannel && authUser && currentView !== 'PORTAL' && currentView !== 'USER_LANDING' && currentView !== 'ADMIN_LANDING' && (
         <button
           className="floating-chat-fab"
           onClick={() => setShowCommChannel(true)}

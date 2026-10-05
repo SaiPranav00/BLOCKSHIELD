@@ -33,6 +33,67 @@ export default function UserView({
   const [transRecipientDid, setTransRecipientDid] = useState('');
   const [transReason, setTransReason] = useState('');
 
+  // Request Asset from Manager Form States
+  const [reqAssetName, setReqAssetName] = useState('');
+  const [reqManagerDid, setReqManagerDid] = useState('did:sih26125:MANAGER001');
+  const [reqPurpose, setReqPurpose] = useState('');
+  const [reqDuration, setReqDuration] = useState('14 Days');
+  const [reqPriority, setReqPriority] = useState('Normal');
+  const [reqDepartment, setReqDepartment] = useState('Avionics Division');
+  const [submittingAssetRequest, setSubmittingAssetRequest] = useState(false);
+
+  // Available Bharat Electronics Limited Hardware Assets (No quantity or availability count shown)
+  const PROVIDED_BEL_ASSETS = [
+    {
+      name: 'Digital Oscilloscope',
+      tag: 'BEL-DSO-2000',
+      desc: 'Electronic signal measurement',
+      icon: '📊',
+    },
+    {
+      name: 'Spectrum Analyzer',
+      tag: 'BEL-SPA-440',
+      desc: 'Frequency-domain signal analysis',
+      icon: '📡',
+    },
+    {
+      name: 'Secure Communication Device',
+      tag: 'BEL-SCD-0106',
+      desc: 'Secure voice/data communication equipment',
+      icon: '📻',
+    },
+    {
+      name: 'Network Security Appliance',
+      tag: 'BEL-NSA-0107',
+      desc: 'Controlled network/security infrastructure',
+      icon: '🛡️',
+    },
+    {
+      name: 'Embedded Development Kit',
+      tag: 'BEL-EDK-0108',
+      desc: 'Hardware used for firmware/prototype development',
+      icon: '💻',
+    },
+    {
+      name: 'Thermal Imaging Camera',
+      tag: 'BEL-TIC-0109',
+      desc: 'Inspection and thermal analysis',
+      icon: '📷',
+    },
+    {
+      name: 'Radar Signal Processor (RSP-3000)',
+      tag: 'BEL-RSP-3000',
+      desc: 'Tactical radar target tracking & RF processing',
+      icon: '🛰️',
+    },
+    {
+      name: 'IFF Transponder Cryptochip',
+      tag: 'BEL-IFF-9921',
+      desc: 'Identification Friend or Foe secure cryptochip',
+      icon: '🔒',
+    },
+  ];
+
   // Verify Form
   const [verifyTokenId, setVerifyTokenId] = useState('');
   const [verifyResult, setVerifyResult] = useState(null);
@@ -164,6 +225,44 @@ export default function UserView({
     }
   };
 
+  const handleAssetRequestSubmit = async (e) => {
+    e.preventDefault();
+    if (!reqAssetName) {
+      return notify('Please select a hardware equipment to request.', 'error');
+    }
+    if (!reqPurpose.trim()) {
+      return notify('Please state the operational justification or project purpose.', 'error');
+    }
+
+    setSubmittingAssetRequest(true);
+    try {
+      const matched = allNfts.find(
+        a => (a.assetName || a.name || '').toLowerCase() === reqAssetName.toLowerCase()
+      );
+      const targetTokenId = matched ? matched.tokenId : `NFT-REQ-${Date.now().toString().slice(-4)}`;
+      const sourceOwner = matched ? (matched.custodian || matched.ownerDID || reqManagerDid) : reqManagerDid;
+
+      await createTransferRequest({
+        requestedByDID: currentDID,
+        fromDID: sourceOwner,
+        toDID: currentDID,
+        tokenId: targetTokenId,
+        reason: `[Asset Request: ${reqAssetName}] ${reqPurpose.trim()} (Duration: ${reqDuration}, Priority: ${reqPriority}, Dept: ${reqDepartment})`,
+      });
+
+      notify(`Asset request for "${reqAssetName}" successfully submitted to Operations Manager!`, 'success');
+      setReqPurpose('');
+      refreshUserData();
+      setActiveTab('request-asset');
+    } catch (err) {
+      const errMsg = err.message || '';
+      const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
+      notify(cleanErr, 'error');
+    } finally {
+      setSubmittingAssetRequest(false);
+    }
+  };
+
   const handleVerify = async (e) => {
     e.preventDefault();
     if (!verifyTokenId.trim()) return notify('Enter Token ID to verify', 'error');
@@ -256,6 +355,19 @@ export default function UserView({
                 <polyline points="2 12 12 17 22 12"/>
               </svg>
               <span>My Assets</span>
+            </button>
+
+            <button
+              type="button"
+              className={`admin-nav-btn ${activeTab === 'request-asset' ? 'active' : ''}`}
+              onClick={() => setActiveTab('request-asset')}
+            >
+              <svg className="admin-nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+              <span>Request Asset</span>
             </button>
 
             <button
@@ -718,6 +830,247 @@ export default function UserView({
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────
+              TAB: REQUEST ASSET FROM OPERATIONS MANAGER
+              ────────────────────────────────────────────────────────── */}
+          {activeTab === 'request-asset' && (
+            <div className="glass-card">
+              <div className="flex-between card-header-row mb-3">
+                <div>
+                  <h3 className="card-title">Request Hardware Asset from Operations Manager</h3>
+                  <p className="text-xs text-muted">
+                    Select from Bharat Electronics Limited defence hardware assets to request custodial allocation from the Operations Manager.
+                  </p>
+                </div>
+                <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh</button>
+              </div>
+
+              {/* Selectable Provided Assets Grid (Without quantities or stock details) */}
+              <div style={{ marginBottom: '20px' }}>
+                <label className="label" style={{ marginBottom: '10px', display: 'block' }}>
+                  Available Bharat Electronics Limited Equipment Catalogue (Click to Select):
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                  {PROVIDED_BEL_ASSETS.map((item) => {
+                    const isSelected = reqAssetName === item.name;
+                    return (
+                      <div
+                        key={item.name}
+                        onClick={() => setReqAssetName(item.name)}
+                        style={{
+                          background: isSelected ? '#eff6ff' : '#ffffff',
+                          border: `1.5px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
+                          borderRadius: '10px',
+                          padding: '12px 14px',
+                          cursor: 'pointer',
+                          transition: 'all 0.18s ease',
+                          boxShadow: isSelected ? '0 4px 12px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(15, 23, 42, 0.04)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontFamily: 'var(--mono)',
+                              background: isSelected ? '#dbeafe' : '#f1f5f9',
+                              color: isSelected ? '#1d4ed8' : '#64748b',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: 700
+                            }}>
+                              {item.tag}
+                            </span>
+                          </div>
+                          <div style={{ fontWeight: 800, fontSize: '0.88rem', color: isSelected ? '#1d4ed8' : '#0f172a', marginBottom: '4px' }}>
+                            {item.name}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b', lineHeight: 1.4 }}>
+                            {item.desc}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+                          <span style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: isSelected ? '#2563eb' : '#94a3b8'
+                          }}>
+                            {isSelected ? '✓ Selected' : 'Select →'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Request Form */}
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', marginBottom: '24px' }}>
+                <h4 style={{ margin: '0 0 14px 0', fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
+                  Submit Formal Custody Allocation Request
+                </h4>
+                <form onSubmit={handleAssetRequestSubmit}>
+                  <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', marginBottom: '14px' }}>
+                    <div className="form-group">
+                      <label className="label">Selected Asset *</label>
+                      <select
+                        className="input"
+                        value={reqAssetName}
+                        onChange={(e) => setReqAssetName(e.target.value)}
+                        required
+                      >
+                        <option value="">-- Choose an equipment from the catalogue --</option>
+                        {PROVIDED_BEL_ASSETS.map((a) => (
+                          <option key={a.name} value={a.name}>{a.name} — {a.desc}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Target Operations Manager *</label>
+                      <select
+                        className="input"
+                        value={reqManagerDid}
+                        onChange={(e) => setReqManagerDid(e.target.value)}
+                        required
+                      >
+                        {allDids.filter(d => d.role === 'MANAGER').length > 0 ? (
+                          allDids.filter(d => d.role === 'MANAGER').map(m => (
+                            <option key={m.did} value={m.did}>{m.name || m.username} ({m.did})</option>
+                          ))
+                        ) : (
+                          <option value="did:sih26125:MANAGER001">Operations Manager (did:sih26125:MANAGER001)</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Required Duration</label>
+                      <select
+                        className="input"
+                        value={reqDuration}
+                        onChange={(e) => setReqDuration(e.target.value)}
+                      >
+                        <option value="7 Days">7 Days (Short-term testing)</option>
+                        <option value="14 Days">14 Days (Standard sprint)</option>
+                        <option value="30 Days">30 Days (Project phase)</option>
+                        <option value="60 Days">60 Days (Extended field deployment)</option>
+                        <option value="Permanent Allocation">Permanent / Long-term Custody</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="label">Priority Level</label>
+                      <select
+                        className="input"
+                        value={reqPriority}
+                        onChange={(e) => setReqPriority(e.target.value)}
+                      >
+                        <option value="Normal">Normal Operations</option>
+                        <option value="High">High Priority Project</option>
+                        <option value="Urgent">Mission Critical / Urgent Deployment</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="label">Deployment Department / Laboratory</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={reqDepartment}
+                        onChange={(e) => setReqDepartment(e.target.value)}
+                        placeholder="e.g. Avionics Division, Radar Systems Unit, Signal Processing Lab"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="label">Operational Purpose / Justification *</label>
+                      <textarea
+                        className="input"
+                        value={reqPurpose}
+                        onChange={(e) => setReqPurpose(e.target.value)}
+                        placeholder="Describe the operational use case, field deployment, firmware testbench, or laboratory task requiring this hardware..."
+                        rows={3}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={submittingAssetRequest || !reqAssetName}
+                      style={{
+                        background: '#2563eb',
+                        borderColor: '#2563eb',
+                        padding: '8px 18px',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>{submittingAssetRequest ? 'Submitting to Ledger...' : 'Submit Request to Operations Manager'}</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* User's Submitted Asset Requests History */}
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a', marginBottom: '10px' }}>
+                  My Asset Allocation Requests History
+                </h4>
+                {myRequests.filter(r => r.toDID === currentDID).length === 0 ? (
+                  <div className="text-xs text-muted" style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    No asset allocation requests submitted yet. Select an equipment above to submit a request.
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Request ID</th>
+                          <th>Asset / Token</th>
+                          <th>Current Custodian / Manager</th>
+                          <th>Justification</th>
+                          <th>Date Submitted</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myRequests.filter(r => r.toDID === currentDID).map((req) => (
+                          <tr key={req.requestId}>
+                            <td><code>{req.requestId}</code></td>
+                            <td>
+                              <strong style={{ color: '#0f172a' }}>
+                                {allNfts.find(n => n.tokenId === req.tokenId)?.assetName || req.tokenId}
+                              </strong>
+                            </td>
+                            <td><code>{req.fromDID}</code></td>
+                            <td className="text-xs" style={{ maxWidth: '280px' }}>{req.reason}</td>
+                            <td className="text-xs">{req.createdAt ? new Date(req.createdAt).toLocaleString() : 'Recent'}</td>
+                            <td>
+                              <span className={`status-pill status-${(req.status || 'PENDING').toLowerCase()}`}>
+                                {req.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

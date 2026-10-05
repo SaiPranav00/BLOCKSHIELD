@@ -15,7 +15,7 @@
  */
 
 const STORAGE_KEY_PREFIX = 'blockshield_local_db_';
-const DB_VERSION = 'v5';
+const DB_VERSION = 'v6';
 
 const getKey = (collection) => `${STORAGE_KEY_PREFIX}${DB_VERSION}_${collection}`;
 
@@ -249,6 +249,102 @@ const SEED_NFTS = [
     status: 'ACTIVE',
     createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
     updatedAt: new Date(Date.now() - 86400000 * 7).toISOString()
+  },
+  {
+    tokenId: 'NFT-1004',
+    assetId: 'BEL-DSO-0104',
+    assetName: 'Digital Oscilloscope',
+    assetType: 'TESTING_EQUIPMENT',
+    legalOwner: 'Bharat Electronics Limited',
+    custodian: 'did:sih26125:MANAGER001',
+    ownerDID: 'did:sih26125:MANAGER001',
+    department: 'R&D Operations',
+    location: 'Signal Testing Lab 2',
+    metadata: JSON.stringify({ description: 'Electronic signal measurement', bandwidth: '2 GHz', channels: 4, sampleRate: '10 GSa/s', model: 'BEL-DSO-2000' }),
+    creatorDID: 'did:sih26125:ADMIN001',
+    status: 'ACTIVE',
+    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 6).toISOString()
+  },
+  {
+    tokenId: 'NFT-1005',
+    assetId: 'BEL-SPA-0105',
+    assetName: 'Spectrum Analyzer',
+    assetType: 'TESTING_EQUIPMENT',
+    legalOwner: 'Bharat Electronics Limited',
+    custodian: 'did:sih26125:N123456',
+    ownerDID: 'did:sih26125:N123456',
+    department: 'Radar Systems',
+    location: 'RF Calibration Facility',
+    metadata: JSON.stringify({ description: 'Frequency-domain signal analysis', frequencyRange: '10 Hz - 44 GHz', resolutionBW: '1 Hz', model: 'BEL-SPA-440' }),
+    creatorDID: 'did:sih26125:ADMIN001',
+    status: 'ACTIVE',
+    createdAt: new Date(Date.now() - 86400000 * 5.5).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 5.5).toISOString()
+  },
+  {
+    tokenId: 'NFT-1006',
+    assetId: 'BEL-SCD-0106',
+    assetName: 'Secure Communication Device',
+    assetType: 'COMMUNICATION',
+    legalOwner: 'Bharat Electronics Limited',
+    custodian: 'did:sih26125:ADMIN001',
+    ownerDID: 'did:sih26125:ADMIN001',
+    department: 'Executive Governance',
+    location: 'Command Communications Center',
+    metadata: JSON.stringify({ description: 'Secure voice/data communication equipment', encryption: 'Post-Quantum Sovereign Cryptography', clearance: 'RESTRICTED-DEFENCE' }),
+    creatorDID: 'did:sih26125:ADMIN001',
+    status: 'ACTIVE',
+    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 5).toISOString()
+  },
+  {
+    tokenId: 'NFT-1007',
+    assetId: 'BEL-NSA-0107',
+    assetName: 'Network Security Appliance',
+    assetType: 'SECURITY',
+    legalOwner: 'Bharat Electronics Limited',
+    custodian: 'did:sih26125:MANAGER001',
+    ownerDID: 'did:sih26125:MANAGER001',
+    department: 'Cyber Security Ops',
+    location: 'Secure Data Center Tier 4',
+    metadata: JSON.stringify({ description: 'Controlled network/security infrastructure', throughput: '100 Gbps', feature: 'Hardware Cryptographic Deep Packet Inspection' }),
+    creatorDID: 'did:sih26125:ADMIN001',
+    status: 'ACTIVE',
+    createdAt: new Date(Date.now() - 86400000 * 4.5).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 4.5).toISOString()
+  },
+  {
+    tokenId: 'NFT-1008',
+    assetId: 'BEL-EDK-0108',
+    assetName: 'Embedded Development Kit',
+    assetType: 'HARDWARE',
+    legalOwner: 'Bharat Electronics Limited',
+    custodian: 'did:sih26125:USER001',
+    ownerDID: 'did:sih26125:USER001',
+    department: 'Avionics Division',
+    location: 'Avionics Firmware Lab 4',
+    metadata: JSON.stringify({ description: 'Hardware used for firmware/prototype development', processor: 'Multi-Core RISC-V SoC', target: 'Defence Avionics Firmware' }),
+    creatorDID: 'did:sih26125:ADMIN001',
+    status: 'ACTIVE',
+    createdAt: new Date(Date.now() - 86400000 * 3.5).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 3.5).toISOString()
+  },
+  {
+    tokenId: 'NFT-1009',
+    assetId: 'BEL-TIC-0109',
+    assetName: 'Thermal Imaging Camera',
+    assetType: 'TESTING_EQUIPMENT',
+    legalOwner: 'Bharat Electronics Limited',
+    custodian: 'did:sih26125:N123456',
+    ownerDID: 'did:sih26125:N123456',
+    department: 'Optronics & Inspection',
+    location: 'Optronics Testing Facility',
+    metadata: JSON.stringify({ description: 'Inspection and thermal analysis', resolution: '1024x768 Thermal Array', sensitivity: '< 20 mK' }),
+    creatorDID: 'did:sih26125:ADMIN001',
+    status: 'ACTIVE',
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 3).toISOString()
   }
 ];
 
@@ -319,6 +415,114 @@ const SEED_NFT_HISTORY = {
         ownerDID: 'did:sih26125:ADMIN001',
         department: 'Executive Governance',
         location: 'Secure Vault 4',
+        status: 'ACTIVE'
+      }
+    }
+  ],
+  'NFT-1004': [
+    {
+      txId: '0x1004aa99887766554433221100ffeeddccbbaa99887766554433221100ffeedd',
+      timestamp: String(Math.floor((Date.now() - 86400000 * 6) / 1000)),
+      isDelete: false,
+      nft: {
+        tokenId: 'NFT-1004',
+        assetName: 'Digital Oscilloscope',
+        assetType: 'TESTING_EQUIPMENT',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: 'did:sih26125:MANAGER001',
+        ownerDID: 'did:sih26125:MANAGER001',
+        department: 'R&D Operations',
+        location: 'Signal Testing Lab 2',
+        status: 'ACTIVE'
+      }
+    }
+  ],
+  'NFT-1005': [
+    {
+      txId: '0x1005bb88aa223344556677889900aabbccddeeff00112233445566778899aabbcc',
+      timestamp: String(Math.floor((Date.now() - 86400000 * 5.5) / 1000)),
+      isDelete: false,
+      nft: {
+        tokenId: 'NFT-1005',
+        assetName: 'Spectrum Analyzer',
+        assetType: 'TESTING_EQUIPMENT',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: 'did:sih26125:N123456',
+        ownerDID: 'did:sih26125:N123456',
+        department: 'Radar Systems',
+        location: 'RF Calibration Facility',
+        status: 'ACTIVE'
+      }
+    }
+  ],
+  'NFT-1006': [
+    {
+      txId: '0x1006cc77bb3344556677889900aabbccddeeff00112233445566778899aabbcc',
+      timestamp: String(Math.floor((Date.now() - 86400000 * 5) / 1000)),
+      isDelete: false,
+      nft: {
+        tokenId: 'NFT-1006',
+        assetName: 'Secure Communication Device',
+        assetType: 'COMMUNICATION',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: 'did:sih26125:ADMIN001',
+        ownerDID: 'did:sih26125:ADMIN001',
+        department: 'Executive Governance',
+        location: 'Command Communications Center',
+        status: 'ACTIVE'
+      }
+    }
+  ],
+  'NFT-1007': [
+    {
+      txId: '0x1007dd66cc44556677889900aabbccddeeff00112233445566778899aabbcc',
+      timestamp: String(Math.floor((Date.now() - 86400000 * 4.5) / 1000)),
+      isDelete: false,
+      nft: {
+        tokenId: 'NFT-1007',
+        assetName: 'Network Security Appliance',
+        assetType: 'SECURITY',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: 'did:sih26125:MANAGER001',
+        ownerDID: 'did:sih26125:MANAGER001',
+        department: 'Cyber Security Ops',
+        location: 'Secure Data Center Tier 4',
+        status: 'ACTIVE'
+      }
+    }
+  ],
+  'NFT-1008': [
+    {
+      txId: '0x1008ee55dd556677889900aabbccddeeff00112233445566778899aabbcc',
+      timestamp: String(Math.floor((Date.now() - 86400000 * 3.5) / 1000)),
+      isDelete: false,
+      nft: {
+        tokenId: 'NFT-1008',
+        assetName: 'Embedded Development Kit',
+        assetType: 'HARDWARE',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: 'did:sih26125:USER001',
+        ownerDID: 'did:sih26125:USER001',
+        department: 'Avionics Division',
+        location: 'Avionics Firmware Lab 4',
+        status: 'ACTIVE'
+      }
+    }
+  ],
+  'NFT-1009': [
+    {
+      txId: '0x1009ff44ee6677889900aabbccddeeff00112233445566778899aabbcc',
+      timestamp: String(Math.floor((Date.now() - 86400000 * 3) / 1000)),
+      isDelete: false,
+      nft: {
+        tokenId: 'NFT-1009',
+        assetName: 'Thermal Imaging Camera',
+        assetType: 'TESTING_EQUIPMENT',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: 'did:sih26125:N123456',
+        ownerDID: 'did:sih26125:N123456',
+        department: 'Optronics & Inspection',
+        location: 'Optronics Testing Facility',
         status: 'ACTIVE'
       }
     }
@@ -651,6 +855,27 @@ export function initLocalDatabase(forceReset = false) {
     saveCollection('message_threads', SEED_MESSAGE_THREADS);
     storageAdapter.setItem(initKey, 'true');
     console.log(`[BlockShield Local DB] Initialized collections with seed state (${DB_VERSION}).`);
+  } else {
+    // Migration sync: Ensure all seed NFTs exist in current storage
+    const currentNFTs = getCollection('nfts') || [];
+    let updated = false;
+    for (const seedAsset of SEED_NFTS) {
+      if (!currentNFTs.some(a => a.tokenId === seedAsset.tokenId)) {
+        currentNFTs.push(seedAsset);
+        updated = true;
+      }
+    }
+    if (updated) {
+      saveCollection('nfts', currentNFTs);
+      const currentHistory = getCollection('nft_history') || {};
+      for (const [tokenId, hist] of Object.entries(SEED_NFT_HISTORY)) {
+        if (!currentHistory[tokenId]) {
+          currentHistory[tokenId] = hist;
+        }
+      }
+      saveCollection('nft_history', currentHistory);
+      console.log(`[BlockShield Local DB] Synchronized additional sovereign assets into local ledger.`);
+    }
   }
 }
 
@@ -1640,8 +1865,11 @@ export const localDatabase = {
 
   // --- TRANSFER REQUEST WORKFLOW ---
   async createTransferRequest({ requestedByDID, requesterDID, fromDID, toDID, targetCustodian, tokenId, reason = '' }) {
-    await simulateLatency(18);
-    const sender = requestedByDID || requesterDID || fromDID;
+    const nfts = getCollection('nfts') || [];
+    let asset = nfts.find(a => a.tokenId === tokenId);
+
+    // If fromDID is provided, use it as the source/custodian; otherwise check the asset or requester
+    const sender = fromDID || (asset && (asset.custodian || asset.ownerDID)) || requestedByDID || requesterDID;
     const recipient = toDID || targetCustodian;
 
     if (!sender || !tokenId || !recipient) {
@@ -1659,11 +1887,32 @@ export const localDatabase = {
       throw new Error(`Sender account ${sender} is not active (status: ${senderUser.status}).`);
     }
 
-    const nfts = getCollection('nfts') || [];
-    const asset = nfts.find(a => a.tokenId === tokenId);
     if (asset) {
       asset.status = 'TRANSFER_PENDING';
       saveCollection('nfts', nfts);
+    } else {
+      // Auto-provision requested asset token under manager stewardship if not yet pre-minted
+      const assetNameMatch = reason.match(/\[Asset Request:\s*([^\]]+)\]/i);
+      const provName = assetNameMatch ? assetNameMatch[1].trim() : 'Requested Defence Hardware';
+      const newPlaceholderAsset = {
+        tokenId,
+        assetId: `BEL-${Date.now().toString().slice(-4)}`,
+        assetName: provName,
+        assetType: 'HARDWARE',
+        legalOwner: 'Bharat Electronics Limited',
+        custodian: sender,
+        ownerDID: sender,
+        department: 'Logistics & Equipment Hub',
+        location: 'Secure Logistics Vault',
+        metadata: JSON.stringify({ description: `${provName} requested for field operations`, issuer: 'Bharat Electronics Limited' }),
+        creatorDID: sender,
+        status: 'TRANSFER_PENDING',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      nfts.push(newPlaceholderAsset);
+      saveCollection('nfts', nfts);
+      asset = newPlaceholderAsset;
     }
 
     const requestId = `REQ-${Date.now().toString().slice(-6)}`;
@@ -1863,9 +2112,10 @@ export const localDatabase = {
 
     const isAuditor = typeof optionsOrRole === 'string'
       ? optionsOrRole.toUpperCase() === 'AUDITOR'
-      : (optionsOrRole?.role?.toUpperCase() === 'AUDITOR' || optionsOrRole?.assetOnly === true);
+      : (optionsOrRole?.role?.toUpperCase() === 'AUDITOR');
+    const assetOnly = optionsOrRole?.assetOnly === true;
 
-    if (isAuditor) {
+    if (isAuditor && assetOnly) {
       matched = matched.filter(isAssetLog);
     }
     return matched;

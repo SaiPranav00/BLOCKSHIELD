@@ -882,28 +882,50 @@ export default function ManagerView({
 
               <form onSubmit={handleAllocate} className="form-grid">
                 <div className="form-group">
-                  <label className="label">Asset Token ID *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. NFT-1001"
+                  <label className="label">Select Asset to Allocate *</label>
+                  <select
+                    className="select"
                     value={allocTokenId}
                     onChange={(e) => setAllocTokenId(e.target.value)}
                     required
-                  />
+                  >
+                    <option value="">-- Choose an Available Asset --</option>
+                    {nftsList.map((asset) => (
+                      <option key={asset.tokenId} value={asset.tokenId}>
+                        {asset.tokenId} — {asset.assetName || asset.name} ({asset.assetType || 'HARDWARE'}) [Current Custodian: {asset.custodian || asset.ownerDID || 'Unassigned'}]
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted mt-1">
+                    Select from {nftsList.length} verified sovereign assets tracked on the ledger.
+                  </p>
                 </div>
 
                 <div className="form-group">
                   <label className="label">Target Custodian DID *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. did:sih26125:N123456"
+                  <select
+                    className="select"
                     value={allocOwnerDid}
                     onChange={(e) => setAllocOwnerDid(e.target.value)}
                     required
-                  />
+                  >
+                    <option value="">-- Choose Target Personnel / Custodian --</option>
+                    {didsList.filter(u => u.status !== 'REVOKED' && u.status !== 'DENIED').map((usr) => (
+                      <option key={usr.did} value={usr.did}>
+                        {usr.name || usr.username || usr.did} ({usr.did}) — {usr.role || 'USER'} [{usr.department || 'General'}]
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted mt-1">
+                    Assign custody to active personnel registered with sovereign DID.
+                  </p>
                 </div>
+
+                {allocTokenId && allocOwnerDid && (
+                  <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#334155' }}>
+                    <strong>Allocation Preview:</strong> Token <code>{allocTokenId}</code> will be cryptographically transferred to <code>{allocOwnerDid}</code> upon commitment.
+                  </div>
+                )}
 
                 <button type="submit" className="btn btn-primary w-full mt-2">
                   Commit Custodian Allocation
@@ -1117,7 +1139,11 @@ export default function ManagerView({
                                 {cat.badge}
                               </span>
                             </td>
-                            <td><span className="action-pill">{log.action}</span></td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <span className="action-pill" style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                                {(log.action || '').replace(/_/g, ' ')}
+                              </span>
+                            </td>
                             <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td><span className={`result-pill ${log.result === 'ALLOWED' ? 'res-allowed' : 'res-denied'}`}>{log.result}</span></td>
                             <td>
