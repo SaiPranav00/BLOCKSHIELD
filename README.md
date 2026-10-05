@@ -71,7 +71,33 @@ Security-sensitive events (`IDENTITY_CREATED`, `IDENTITY_REVOKED`, `ROLE_ASSIGNE
 
 ---
 
-## 3. System Architecture Diagram
+## 3. System Architecture & Repository Layout
+
+Detailed architectural designs, data flows, and module boundaries are documented in **[ARCHITECTURE.md](file:///home/varun/Projects/BLOCKSHIELD/ARCHITECTURE.md)**. Team contribution guidelines, Git workflows, and AI coding agent rules are in **[CONTRIBUTING.md](file:///home/varun/Projects/BLOCKSHIELD/CONTRIBUTING.md)**.
+
+```text
+BLOCKSHIELD/
+├── frontend/               # React 19 + Vite Feature-Based UI
+│   ├── src/
+│   │   ├── app/            # App bootstrap & routing
+│   │   ├── features/       # Feature domains (admin, manager, auditor, user, communication)
+│   │   ├── components/     # Shared reusable UI primitives (ui/ modal, button, table)
+│   │   ├── services/       # Network API clients & Fabric endpoints
+│   │   ├── utils/          # Pure helper utilities & list parsers
+│   │   └── styles/         # Global design tokens, resets, and layout CSS
+├── backend/                # Node.js + Express REST API Gateway
+│   ├── src/
+│   │   ├── routes/         # Express endpoint definitions
+│   │   ├── controllers/    # Request handling & HTTP validation
+│   │   ├── middleware/     # Auth, RBAC, and error handlers
+│   │   └── fabric/         # Hyperledger Fabric Gateway & Mock fallback
+├── blockchain/             # Hyperledger Fabric Go Smart Contracts & Artifacts
+│   └── chaincode/          # identity.go, rbac.go, nft.go, transfer.go, audit.go
+├── scripts/                # Startup, teardown, bootstrap, and testing scripts
+├── ARCHITECTURE.md         # System design, data flow diagrams, collaboration hotspots
+├── CONTRIBUTING.md         # Git branch rules, AI agent rules, PR checklist
+└── README.md               # Quickstart and overview (this file)
+```
 
 ```text
 React 19 Dashboard Frontend (Port 5173 / 5174 / 5175 / 5176)

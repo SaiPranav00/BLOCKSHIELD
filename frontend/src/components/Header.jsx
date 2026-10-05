@@ -2,143 +2,77 @@ import React from 'react';
 import blockshieldLogo from '../assets/blockshield-logo.svg';
 
 export default function Header({
-  systemStatus,
   activeRole,
+  activeDID,
   currentView,
   onReturnHome,
-  onSelectRole,
   onOpenCommChannel,
   authUser,
   onLogout,
   unreadCount = 0,
 }) {
-  const roleBadges = {
-    ADMIN: { label: 'Admin Workspace', color: 'badge-admin' },
-    MANAGER: { label: 'Manager Workspace', color: 'badge-manager' },
-    AUDITOR: { label: 'Auditor Workspace', color: 'badge-auditor' },
-    USER: { label: 'User Workspace', color: 'badge-user' },
-  };
-
-  const currentBadge = roleBadges[activeRole] || roleBadges.USER;
-  const isDedicatedPage = currentView !== 'PORTAL';
-
-  const currentPort = typeof window !== 'undefined' ? (window.location.port || '80') : '5173';
-  const getPortLabel = (port) => {
-    if (port === '5174') return 'Port 5174 (Admin)';
-    if (port === '5175') return 'Port 5175 (Manager)';
-    if (port === '5176') return 'Port 5176 (Auditor)';
-    return `Port ${port}`;
-  };
+  const displayRole = authUser?.role || activeRole || 'USER';
+  const rawIdentifier = authUser?.username || authUser?.did || (activeDID ? activeDID.split(':').pop() : `${displayRole}001`);
+  const displayUsername = rawIdentifier.replace(/^did:[^:]+:/, '');
 
   return (
     <header className="app-header">
+      {/* Left: Brand Lockup with BlockShield Identity */}
       <div className="header-brand">
-        <div className="brand-logo-lockup" onClick={onReturnHome} style={{ cursor: 'pointer' }} title="Return to Role Selection Portal">
+        <div
+          className="brand-logo-lockup"
+          onClick={onReturnHome}
+          style={{ cursor: 'pointer' }}
+          title="Return to Central Portals Landing"
+        >
           <img src={blockshieldLogo} alt="BlockShield Logo" className="brand-logo-img" />
           <div className="brand-text-wrapper">
-            <h1 className="brand-title">BlockShield Platform</h1>
-            <p className="brand-subtitle">Hyperledger Fabric Ledger &amp; DID System</p>
+            <h1 className="brand-title">BlockShield</h1>
+            <p className="brand-subtitle">Hyperledger Fabric Ledger</p>
           </div>
         </div>
-
-        {/* Quick Role Navigation Tab Bar */}
-        <nav className="header-role-nav">
-          <button
-            type="button"
-            className={`nav-role-btn ${currentView === 'PORTAL' ? 'active' : ''}`}
-            onClick={onReturnHome}
-            title="Return to Central Portals Landing"
-          >
-            🌐 Portal Home
-          </button>
-          <button
-            type="button"
-            className={`nav-role-btn nav-admin ${currentView === 'ADMIN' ? 'active' : ''}`}
-            onClick={() => onSelectRole && onSelectRole('ADMIN')}
-            title="Switch to Admin Security Portal"
-          >
-            🛡️ Admin
-          </button>
-          <button
-            type="button"
-            className={`nav-role-btn nav-manager ${currentView === 'MANAGER' ? 'active' : ''}`}
-            onClick={() => onSelectRole && onSelectRole('MANAGER')}
-            title="Switch to Manager Portal"
-          >
-            💼 Manager
-          </button>
-          <button
-            type="button"
-            className={`nav-role-btn nav-auditor ${currentView === 'AUDITOR' ? 'active' : ''}`}
-            onClick={() => onSelectRole && onSelectRole('AUDITOR')}
-            title="Switch to Auditor Portal"
-          >
-            🔍 Auditor
-          </button>
-          <button
-            type="button"
-            className={`nav-role-btn nav-user ${currentView === 'USER' ? 'active' : ''}`}
-            onClick={() => onSelectRole && onSelectRole('USER')}
-            title="Switch to User Portal"
-          >
-            👤 User
-          </button>
-        </nav>
       </div>
 
+      {/* Right: Clean Utility Bar (Zoom Chat & Tasks, User DID + Role Chip, Sign Out) */}
       <div className="header-meta">
-        {/* Server Port Indicator Badge */}
-        <div className="port-badge-indicator" title={`Serving on network port ${currentPort}`}>
-          <span className="port-dot"></span>
-          <span className="port-text">{getPortLabel(currentPort)}</span>
-        </div>
+        {/* Communication Hub: Zoom Chat & Tasks */}
+        <button
+          type="button"
+          className="btn-comm-hub"
+          onClick={onOpenCommChannel}
+          title="Open Full Page Zoom Chat & Tasks"
+        >
+          <span className="comm-icon">💬</span>
+          <span>Zoom Chat &amp; Tasks</span>
+          {unreadCount > 0 && (
+            <span className="badge-unread-count">{unreadCount}</span>
+          )}
+        </button>
 
-        {/* Network Status Indicator */}
-        <div className={`status-indicator ${systemStatus.isOnline ? 'online' : 'offline'}`}>
-          <span className="pulse-dot"></span>
-          <span className="pulse-ring"></span>
-          <span className="status-label">
-            {systemStatus.isOnline
-              ? `Fabric Online (${systemStatus.latency || 14}ms)`
-              : 'Ledger Offline'}
+        {/* Clean User Session Chip: Identity + Role Badge */}
+        <div className="header-user-chip" title={`Authenticated as ${displayUsername} (${displayRole})`}>
+          <span className="header-user-name">
+            {displayUsername}
+          </span>
+          <span className={`header-role-badge role-badge-${displayRole.toLowerCase()}`}>
+            {displayRole}
           </span>
         </div>
 
-        {/* Communication Channel Button (Accessible across all 4 roles: Admin, Manager, User, Auditor) */}
-        {(authUser || currentView === 'ADMIN' || currentView === 'MANAGER' || currentView === 'AUDITOR' || currentView === 'USER') && (
-          <button
-            className="btn-comm-hub"
-            onClick={onOpenCommChannel}
-            title="Open Full Page Zoom Chat & Tasks"
-          >
-            <span className="comm-icon">💬</span>
-            <span>Zoom Chat &amp; Tasks</span>
-            {unreadCount > 0 && (
-              <span className="badge-unread-count">{unreadCount}</span>
-            )}
-          </button>
-        )}
-
-        {/* Auth User Session Pill */}
-        {authUser ? (
-          <div className="user-session-box">
-            <span className="user-did-label">
-              {authUser.username || authUser.did}
-            </span>
-            <span className={`role-pill role-${(authUser.role || 'USER').toLowerCase()}`}>
-              {authUser.role}
-            </span>
-            <button className="btn-logout" onClick={onLogout} title="Sign Out">
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          isDedicatedPage && (
-            <div className={`role-badge ${currentBadge.color}`}>
-              {currentBadge.label}
-            </div>
-          )
-        )}
+        {/* Clean Sign Out Button */}
+        <button
+          type="button"
+          className="btn-header-signout"
+          onClick={onLogout}
+          title="Sign out of current workspace"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span>Sign Out</span>
+        </button>
       </div>
     </header>
   );
