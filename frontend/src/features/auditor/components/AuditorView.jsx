@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import blockshieldLogo from '../../../assets/blockshield-logo.svg';
+import ForensicEvidenceModal from '../../../components/ForensicEvidenceModal';
 import {
   getAuditLogs,
   getAuditLogsByResource,
   getAllDIDs,
   getAllNFTs,
+  isAssetLog,
 } from '../../../services/api';
 import { parseList } from '../../../utils';
 
@@ -24,23 +26,31 @@ export default function AuditorView({
   const [auditFilter, setAuditFilter] = useState('');
   const [didSearch, setDidSearch] = useState('');
   const [resourceSearch, setResourceSearch] = useState('');
+  const [assetSearch, setAssetSearch] = useState('');
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [deniedOnly, setDeniedOnly] = useState(false);
+  const [auditPageSize, setAuditPageSize] = useState(10);
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
 
   const [verifyInput, setVerifyInput] = useState('');
   const [provTokenId, setProvTokenId] = useState('');
+
+  // Forensic Evidence Modal state
+  const [selectedEvidenceLog, setSelectedEvidenceLog] = useState(null);
+  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
 
   const refreshAuditData = async () => {
     setLoading(true);
     try {
       const [auditRes, didsRes, nftsRes] = await Promise.allSettled([
-        getAuditLogs(),
+        getAuditLogs('AUDITOR'),
         getAllDIDs(),
         getAllNFTs(),
       ]);
 
       if (auditRes.status === 'fulfilled') {
-        setAuditList(parseList(auditRes.value));
+        const rawLogs = parseList(auditRes.value);
+        setAuditList(rawLogs.filter(isAssetLog));
       }
       if (didsRes.status === 'fulfilled') {
         setDidsList(parseList(didsRes.value));
@@ -57,6 +67,21 @@ export default function AuditorView({
 
   useEffect(() => {
     refreshAuditData();
+    // Auto-poll audit records every 3.5 seconds
+    const timer = setInterval(() => {
+      refreshAuditData();
+    }, 3500);
+
+    // Immediate reactive update on any local database mutation event
+    const handleDataChange = () => {
+      refreshAuditData();
+    };
+
+    window.addEventListener('blockshield:data-change', handleDataChange);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('blockshield:data-change', handleDataChange);
+    };
   }, []);
 
   const sanitizeTokenId = (raw) => {
@@ -87,13 +112,18 @@ export default function AuditorView({
       cleanQuery = `NFT-${cleanQuery}`;
     }
 
+    const isIdentity = upper.startsWith('USER-') || upper.startsWith('ADMIN-') || upper.startsWith('MANAGER-') || cleanQuery.includes(':') || upper.startsWith('DID:');
+
     try {
-      const res = await getAuditLogsByResource(cleanQuery);
+      const res = await getAuditLogsByResource(cleanQuery, { role: 'AUDITOR', assetOnly: !isIdentity });
       const data = res?.data || res || [];
-      setFilteredLogs(Array.isArray(data) ? data : []);
+      const resultLogs = isIdentity
+        ? (Array.isArray(data) ? data : [])
+        : (Array.isArray(data) ? data : []).filter(isAssetLog);
+      setFilteredLogs(resultLogs);
       setActiveTab('filter-resource');
       setResourceSearch(cleanQuery);
-      notify(`Found ${data.length} audit entries for ${cleanQuery}`, 'success');
+      notify(`Found ${resultLogs.length} audit entries for ${cleanQuery}`, 'success');
     } catch (err) {
       const errMsg = err.message || '';
       const cleanErr = errMsg.replace(/10 ABORTED: failed to endorse transaction, see attached details for more info|EvaluateError:|TransactionError:/gi, '').trim() || errMsg;
@@ -114,13 +144,45 @@ export default function AuditorView({
     onViewProvenance(cleanToken);
   };
 
-  const filteredAuditsList = auditList.filter(item => {
-    if (deniedOnly && item.result !== 'DENIED') return false;
+  const filteredAuditsList = auditList
+    .filter(item => isAssetLog(item))
+    .filter(item => {
+      if (deniedOnly && item.result !== 'DENIED') return false;
+      if (!auditFilter.trim()) return true;
+      const q = auditFilter.toLowerCase().trim();
+      const payloadStr = item.payload ? JSON.stringify(item.payload).toLowerCase() : '';
+      return (
+        (item.action || '').toLowerCase().includes(q) ||
+        (item.resourceId || '').toLowerCase().includes(q) ||
+        (item.actorDID || '').toLowerCase().includes(q) ||
+        (item.actorName || '').toLowerCase().includes(q) ||
+        (item.actorRole || '').toLowerCase().includes(q) ||
+        (item.details || '').toLowerCase().includes(q) ||
+        (item.eventId || '').toLowerCase().includes(q) ||
+        (item.txId || '').toLowerCase().includes(q) ||
+        (item.policyRule || '').toLowerCase().includes(q) ||
+        String(item.blockNumber || '').includes(q) ||
+        payloadStr.includes(q)
+      );
+    });
+
+  const totalAuditPages = Math.ceil(filteredAuditsList.length / auditPageSize) || 1;
+  const safeAuditPage = Math.min(Math.max(1, auditCurrentPage), totalAuditPages);
+  const startAuditIdx = (safeAuditPage - 1) * auditPageSize;
+  const paginatedAudits = filteredAuditsList.slice(startAuditIdx, startAuditIdx + auditPageSize);
+
+  const filteredAssetsList = nftsList.filter(item => {
+    if (!assetSearch.trim()) return true;
+    const q = assetSearch.toLowerCase().trim();
     return (
-      (item.action || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-      (item.resourceId || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-      (item.actorDID || '').toLowerCase().includes(auditFilter.toLowerCase()) ||
-      (item.details || '').toLowerCase().includes(auditFilter.toLowerCase())
+      (item.tokenId || '').toLowerCase().includes(q) ||
+      (item.assetName || item.name || '').toLowerCase().includes(q) ||
+      (item.assetType || '').toLowerCase().includes(q) ||
+      (item.custodian || item.ownerDID || '').toLowerCase().includes(q) ||
+      (item.department || '').toLowerCase().includes(q) ||
+      (item.legalOwner || '').toLowerCase().includes(q) ||
+      (item.status || '').toLowerCase().includes(q) ||
+      (item.metadata || '').toLowerCase().includes(q)
     );
   });
 
@@ -164,9 +226,17 @@ export default function AuditorView({
               </div>
             </div>
 
-            <div className="admin-blockshield-subbadge">
-              <img src={blockshieldLogo} alt="BlockShield Logo" className="admin-blockshield-sublogo" />
-              <span className="admin-blockshield-tagtext">BlockShield Audit</span>
+            <div className="admin-blockshield-subbadge" title="Bharat Electronics Limited • Hyperledger Fabric Audit Node">
+              <div className="admin-subbadge-logo-frame">
+                <img src={blockshieldLogo} alt="" aria-hidden="true" className="admin-blockshield-sublogo" />
+              </div>
+              <div className="admin-subbadge-content">
+                <div className="admin-subbadge-title-row">
+                  <span className="admin-blockshield-tagtext">BlockShield Audit</span>
+                  <span className="admin-subbadge-status-dot" title="Audit Node Online" />
+                </div>
+                <span className="admin-subbadge-ledger">Bharat Electronics Limited • Fabric</span>
+              </div>
             </div>
           </div>
 
@@ -318,82 +388,84 @@ export default function AuditorView({
           </div>
         </div>
 
-        {/* 3 Metric Cards Row (Recorded events, Identities, Assets) */}
-        <div className="admin-metrics-row">
-          {/* Card 1: Recorded events */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('all-logs')}
-            title="Click to view Audit Trail"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="8" y1="6" x2="21" y2="6"/>
-                  <line x1="8" y1="12" x2="21" y2="12"/>
-                  <line x1="8" y1="18" x2="21" y2="18"/>
-                  <line x1="3" y1="6" x2="3.01" y2="6"/>
-                  <line x1="3" y1="12" x2="3.01" y2="12"/>
-                  <line x1="3" y1="18" x2="3.01" y2="18"/>
-                </svg>
+        {/* 3 Metric Cards Row (Recorded events, Identities, Assets) - Visible ONLY in Overview */}
+        {activeTab === 'overview' && (
+          <div className="admin-metrics-row">
+            {/* Card 1: Recorded events */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('all-logs')}
+              title="Click to view Audit Trail"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"/>
+                    <line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/>
+                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Immutable</span>
               </div>
-              <span className="metric-tag-badge">Immutable</span>
-            </div>
 
-            <div className="metric-number-big">
-              {auditList.length.toLocaleString()}
-            </div>
-            <div className="metric-title-text">Recorded events</div>
-            <div className="metric-sub-text">All activity retained for review</div>
-          </div>
-
-          {/* Card 2: Identities */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('filter-resource')}
-            title="Click to view Identity History"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  <polyline points="9 12 11 14 15 10"/>
-                </svg>
+              <div className="metric-number-big">
+                {auditList.length.toLocaleString()}
               </div>
-              <span className="metric-tag-badge">Verified</span>
+              <div className="metric-title-text">Recorded events</div>
+              <div className="metric-sub-text">All activity retained for review</div>
             </div>
 
-            <div className="metric-number-big">
-              {didsList.length}
-            </div>
-            <div className="metric-title-text">Identities</div>
-            <div className="metric-sub-text">DID records in the registry</div>
-          </div>
-
-          {/* Card 3: Assets */}
-          <div
-            className="admin-metric-card"
-            onClick={() => setActiveTab('dept-assets')}
-            title="Click to view Asset History"
-          >
-            <div className="metric-card-top">
-              <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#059669' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                  <polyline points="2 17 12 22 22 17"/>
-                  <polyline points="2 12 12 17 22 12"/>
-                </svg>
+            {/* Card 2: Identities */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('filter-resource')}
+              title="Click to view Identity History"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Verified</span>
               </div>
-              <span className="metric-tag-badge">Tracked</span>
+
+              <div className="metric-number-big">
+                {didsList.length}
+              </div>
+              <div className="metric-title-text">Identities</div>
+              <div className="metric-sub-text">DID records in the registry</div>
             </div>
 
-            <div className="metric-number-big">
-              {nftsList.length}
+            {/* Card 3: Assets */}
+            <div
+              className="admin-metric-card"
+              onClick={() => setActiveTab('dept-assets')}
+              title="Click to view Asset History"
+            >
+              <div className="metric-card-top">
+                <div className="metric-icon-square square-blue" style={{ background: '#ecfdf5', color: '#059669' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                  </svg>
+                </div>
+                <span className="metric-tag-badge">Tracked</span>
+              </div>
+
+              <div className="metric-number-big">
+                {nftsList.length}
+              </div>
+              <div className="metric-title-text">Assets</div>
+              <div className="metric-sub-text">Current provenance available</div>
             </div>
-            <div className="metric-title-text">Assets</div>
-            <div className="metric-sub-text">Current provenance available</div>
           </div>
-        </div>
+        )}
 
         {/* Workspace Body Content */}
         <div className="admin-tab-body">
@@ -422,8 +494,9 @@ export default function AuditorView({
                   {auditList && auditList.length > 0 ? (
                     auditList.slice(0, 3).map((item, idx) => {
                       const actionUpper = (item.action || '').toUpperCase();
-                      const isCreate = actionUpper.includes('DID') || actionUpper.includes('CREATE') || actionUpper.includes('REGISTER');
-                      const isAlloc = actionUpper.includes('ALLOC') || actionUpper.includes('ASSIGN');
+                      const isTransfer = actionUpper.includes('TRANSFER');
+                      const isCreate = !isTransfer && (actionUpper.includes('DID') || actionUpper.includes('CREATE') || actionUpper.includes('REGISTER'));
+                      const isAlloc = !isTransfer && (actionUpper.includes('ALLOC') || actionUpper.includes('ASSIGN'));
 
                       let circleClass = 'circle-blue';
                       let icon = (
@@ -432,7 +505,17 @@ export default function AuditorView({
                         </svg>
                       );
 
-                      if (isCreate) {
+                      if (isTransfer) {
+                        circleClass = 'circle-blue';
+                        icon = (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="17 1 21 5 17 9"/>
+                            <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                            <polyline points="7 23 3 19 7 15"/>
+                            <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                          </svg>
+                        );
+                      } else if (isCreate) {
                         circleClass = 'circle-teal';
                         icon = (
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -449,7 +532,11 @@ export default function AuditorView({
                         );
                       }
 
-                      const defaultTitle = isCreate ? 'Identity created' : isAlloc ? 'Asset allocated' : (item.action || 'Ledger event');
+                      const defaultTitle = isTransfer
+                        ? (actionUpper.includes('APPROVE') ? 'Transfer approved' : actionUpper.includes('REJECT') ? 'Transfer rejected' : 'Transfer requested')
+                        : isCreate ? 'Identity created'
+                        : isAlloc ? 'Asset allocated'
+                        : (item.action || 'Ledger event').replace(/_/g, ' ');
                       const resourceTarget = item.resourceId || item.entityId || 'Ledger';
                       const actor = item.actorDID ? item.actorDID.replace(/^did:trust:/, '').replace(/^did:sih26125:/, '') : (item.actor || 'System');
                       const timeAgo = item.timestamp
@@ -573,8 +660,16 @@ export default function AuditorView({
                 </div>
               </div>
 
-              <div className="table-responsive">
-                <table className="data-table">
+              <div className="table-responsive-fit">
+                <table className="data-table audit-table-fit">
+                  <colgroup>
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '25%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '17%' }} />
+                    <col style={{ width: '13%' }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Timestamp</th>
@@ -582,7 +677,7 @@ export default function AuditorView({
                       <th>Resource ID</th>
                       <th>Result</th>
                       <th>Actor DID</th>
-                      <th>Details</th>
+                      <th style={{ textAlign: 'center' }}>Audit Details</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -591,7 +686,7 @@ export default function AuditorView({
                         <td colSpan="6" className="text-center py-4 text-muted">No audit events match your filter criteria.</td>
                       </tr>
                     ) : (
-                      filteredAuditsList.map((log, index) => {
+                      paginatedAudits.map((log, index) => {
                         const isDenied = log.result === 'DENIED';
                         const formattedTime = log.timestamp && !isNaN(log.timestamp)
                           ? new Date(Number(log.timestamp) * 1000).toLocaleString()
@@ -599,22 +694,136 @@ export default function AuditorView({
 
                         return (
                           <tr key={log.eventId || index} className={isDenied ? 'row-denied' : ''}>
-                            <td className="text-xs">{formattedTime}</td>
-                            <td><span className="type-pill">{log.action}</span></td>
-                            <td><code>{log.resourceId}</code></td>
+                            <td className="text-xs">
+                              <div>{formattedTime}</div>
+                              {log.blockNumber && <span className="type-pill" style={{ fontSize: '0.65rem', marginTop: '2px', display: 'inline-block' }}>Block #{log.blockNumber}</span>}
+                            </td>
+                            <td className="audit-action-td">
+                              <span className="type-pill audit-action-pill">
+                                {(log.action || '').replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            <td><code className="audit-cell-truncate" title={log.resourceId}>{log.resourceId}</code></td>
                             <td>
                               <span className={`status-pill ${isDenied ? 'status-revoked' : 'status-active'}`}>
                                 {log.result}
                               </span>
                             </td>
-                            <td><code>{log.actorDID}</code></td>
-                            <td className="text-xs text-muted">{log.details || 'N/A'}</td>
+                            <td><code className="audit-cell-truncate" title={log.actorDID}>{log.actorDID}</code></td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px',
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  fontWeight: 600,
+                                  fontSize: '0.74rem',
+                                  borderColor: '#2563eb',
+                                  color: '#2563eb',
+                                  background: '#eff6ff',
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                  maxWidth: '110px'
+                                }}
+                                onClick={() => {
+                                  setSelectedEvidenceLog(log);
+                                  setIsEvidenceModalOpen(true);
+                                }}
+                                title="View audit details"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                  <line x1="16" y1="13" x2="8" y2="13"/>
+                                  <line x1="16" y1="17" x2="8" y2="17"/>
+                                </svg>
+                                <span>View Details</span>
+                              </button>
+                            </td>
                           </tr>
                         );
                       })
                     )}
                   </tbody>
                 </table>
+
+                {/* Audit Pagination Controls */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: '#f8fafc',
+                  borderTop: '1px solid #e2e8f0',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  fontSize: '0.78rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#64748b' }}>Show</span>
+                    <select
+                      className="input input-xs"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '4px' }}
+                      value={auditPageSize}
+                      onChange={(e) => {
+                        setAuditPageSize(Number(e.target.value));
+                        setAuditCurrentPage(1);
+                      }}
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span style={{ color: '#64748b' }}>entries per page</span>
+                    <span style={{ color: '#cbd5e1', margin: '0 4px' }}>|</span>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>
+                      {filteredAuditsList.length === 0
+                        ? '0 entries'
+                        : `Showing ${startAuditIdx + 1} to ${Math.min(startAuditIdx + auditPageSize, filteredAuditsList.length)} of ${filteredAuditsList.length} entries`}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage <= 1}
+                      onClick={() => setAuditCurrentPage(p => Math.max(1, p - 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage <= 1 ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage <= 1 ? 0.5 : 1
+                      }}
+                    >
+                      &larr; Prev
+                    </button>
+                    <span style={{ fontSize: '0.76rem', color: '#334155', fontWeight: 600, padding: '0 6px' }}>
+                      Page {safeAuditPage} of {totalAuditPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline"
+                      disabled={safeAuditPage >= totalAuditPages}
+                      onClick={() => setAuditCurrentPage(p => Math.min(totalAuditPages, p + 1))}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '0.74rem',
+                        cursor: safeAuditPage >= totalAuditPages ? 'not-allowed' : 'pointer',
+                        opacity: safeAuditPage >= totalAuditPages ? 0.5 : 1
+                      }}
+                    >
+                      Next &rarr;
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -624,21 +833,58 @@ export default function AuditorView({
               ────────────────────────────────────────────────────────── */}
           {activeTab === 'filter-resource' && (
             <div className="glass-card">
-              <h3 className="card-title mb-2">Resource &amp; Transaction Audit Lookup</h3>
+              <h3 className="card-title mb-2">Identity &amp; Resource History Lookup</h3>
               <p className="text-sm text-muted mb-4">
-                Query specific audit events tied to an asset Token ID (e.g. <code>NFT-1001</code>) or DID.
+                Select an identity (DID) or asset Token ID from the available fields to inspect its cryptographic history on the Fabric ledger.
               </p>
 
-              <form onSubmit={handleFilterResource} className="flex-gap mb-4 max-w-lg">
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Enter Token ID or DID (e.g. NFT-1001)..."
-                  value={resourceSearch}
-                  onChange={(e) => setResourceSearch(e.target.value)}
-                  required
-                />
-                <button type="submit" className="btn btn-primary">Search Audit Trail</button>
+              <form onSubmit={handleFilterResource} className="form-layout mb-4 max-w-xl">
+                <div className="form-group mb-3">
+                  <label className="label">Select Available Field (Identity / Asset):</label>
+                  <select
+                    className="select"
+                    value={resourceSearch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setResourceSearch(val);
+                      if (val) {
+                        handleFilterResource(null, val);
+                      }
+                    }}
+                  >
+                    <option value="">-- Choose an Available Identity or Asset --</option>
+                    <optgroup label="Registered Identities (DIDs)">
+                      {didsList.map((usr) => (
+                        <option key={usr.did} value={usr.did}>
+                          {usr.did} — {usr.name || usr.username || 'User'} ({usr.role || 'USER'} - {usr.department || 'General'})
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Tracked Sovereign Assets">
+                      {nftsList.map((asset) => (
+                        <option key={asset.tokenId} value={asset.tokenId}>
+                          {asset.tokenId} — {asset.assetName || asset.name} ({asset.assetType || 'HARDWARE'})
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div className="form-group mb-3">
+                  <label className="label">Or Query Custom DID, Token ID or TxID:</label>
+                  <div className="flex-gap">
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. did:sih26125:ADMIN001 or NFT-1004"
+                      value={resourceSearch}
+                      onChange={(e) => setResourceSearch(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                      Inspect History
+                    </button>
+                  </div>
+                </div>
               </form>
 
               {filteredLogs.length > 0 && (
@@ -648,21 +894,58 @@ export default function AuditorView({
                       <tr>
                         <th>Event ID</th>
                         <th>Timestamp</th>
-                        <th>Action</th>
+                        <th style={{ whiteSpace: 'nowrap' }}>Action</th>
                         <th>Result</th>
                         <th>Actor DID</th>
-                        <th>Audit Details</th>
+                        <th style={{ textAlign: 'center', width: '130px' }}>Audit Details</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredLogs.map((log, idx) => (
                         <tr key={log.eventId || idx} className={log.result === 'DENIED' ? 'row-denied' : ''}>
                           <td><code>{log.eventId}</code></td>
-                          <td className="text-xs">{log.timestamp && !isNaN(log.timestamp) ? new Date(Number(log.timestamp) * 1000).toLocaleString() : log.timestamp}</td>
-                          <td><span className="type-pill">{log.action}</span></td>
+                          <td className="text-xs" style={{ whiteSpace: 'nowrap' }}>{log.timestamp && !isNaN(log.timestamp) ? new Date(Number(log.timestamp) * 1000).toLocaleString() : log.timestamp}</td>
+                          <td className="audit-action-td">
+                            <span className="type-pill audit-action-pill">
+                              {(log.action || '').replace(/_/g, ' ')}
+                            </span>
+                          </td>
                           <td><span className={`status-pill ${log.result === 'DENIED' ? 'status-revoked' : 'status-active'}`}>{log.result}</span></td>
                           <td><code>{log.actorDID}</code></td>
-                          <td className="text-xs">{log.details}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                fontSize: '0.78rem',
+                                borderColor: '#2563eb',
+                                color: '#2563eb',
+                                background: '#eff6ff',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onClick={() => {
+                                setSelectedEvidenceLog(log);
+                                setIsEvidenceModalOpen(true);
+                              }}
+                              title="View audit details"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                              </svg>
+                              <span>View Details</span>
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -678,34 +961,55 @@ export default function AuditorView({
           {activeTab === 'dept-assets' && (
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Asset History &amp; Custody Roster</h3>
-                <button className="btn btn-xs btn-secondary" onClick={refreshAuditData}>Refresh</button>
+                <div>
+                  <h3 className="card-title">Asset History &amp; Custody Roster</h3>
+                  <p className="text-xs text-muted">Inspect verified assets and their current custodians across all departments.</p>
+                </div>
+                <div className="flex-gap align-center">
+                  <input
+                    type="text"
+                    className="input input-sm"
+                    style={{ minWidth: 260 }}
+                    placeholder="Search asset, token, custodian, dept..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                  />
+                  <button className="btn btn-xs btn-secondary" onClick={refreshAuditData}>Refresh</button>
+                </div>
               </div>
 
-              <div className="grid grid-3">
-                {nftsList.map((asset) => (
-                  <div key={asset.tokenId} className="asset-card">
-                    <div className="asset-header">
-                      <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                      <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+              {filteredAssetsList.length === 0 ? (
+                <div className="empty-state-box py-5 text-center text-muted">
+                  No assets match your search criteria.
+                </div>
+              ) : (
+                <div className="grid grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.25rem' }}>
+                  {filteredAssetsList.map((asset) => (
+                    <div key={asset.tokenId} className="asset-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.35rem', borderRadius: '14px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+                      <div>
+                        <div className="asset-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                          <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                          <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                        </div>
+                        <h4 className="asset-title" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: '#0f172a' }}>{asset.assetName || asset.name}</h4>
+                        <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Token ID: <code>{asset.tokenId}</code></p>
+                        {asset.assetId && <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Asset ID: <code>{asset.assetId}</code></p>}
+                        <div className="asset-meta text-xs my-2" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Custodian:</strong> <code style={{ fontSize: '0.72rem' }}>{asset.custodian || asset.ownerDID}</code></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Department:</strong> <span>{asset.department || 'R&D'}</span></p>
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-xs btn-secondary w-full mt-3"
+                        onClick={() => onViewProvenance(asset.tokenId)}
+                      >
+                        View Visual History Timeline
+                      </button>
                     </div>
-                    <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                    <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
-                    {asset.assetId && <p className="asset-id">Asset ID: <code>{asset.assetId}</code></p>}
-                    <div className="asset-meta text-xs my-2">
-                      <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                      <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID}</code></p>
-                      <p><strong>Department:</strong> {asset.department || 'R&D'}</p>
-                    </div>
-                    <button
-                      className="btn btn-xs btn-secondary w-full mt-2"
-                      onClick={() => onViewProvenance(asset.tokenId)}
-                    >
-                      View Visual History Timeline
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -715,45 +1019,78 @@ export default function AuditorView({
           {activeTab === 'provenance' && (
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
-                <h3 className="card-title">Asset Provenance Timeline Inspector</h3>
-                <form onSubmit={handleViewProvenanceDirect} className="flex-gap">
+                <div>
+                  <h3 className="card-title">Asset Provenance Timeline Inspector</h3>
+                  <p className="text-xs text-muted">Search or select any token to inspect its immutable block-by-block custody lineage.</p>
+                </div>
+                <div className="flex-gap align-center">
                   <input
                     type="text"
                     className="input input-sm"
-                    placeholder="Enter Token ID (e.g. NFT-1001)..."
-                    value={provTokenId}
-                    onChange={(e) => setProvTokenId(e.target.value)}
+                    style={{ minWidth: 220 }}
+                    placeholder="Filter asset list..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
                   />
-                  <button type="submit" className="btn btn-xs btn-primary">Inspect Timeline</button>
-                </form>
+                  <form onSubmit={handleViewProvenanceDirect} className="flex-gap">
+                    <input
+                      type="text"
+                      className="input input-sm"
+                      placeholder="Inspect Token ID (e.g. NFT-1001)..."
+                      value={provTokenId}
+                      onChange={(e) => setProvTokenId(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-xs btn-primary">Inspect</button>
+                  </form>
+                </div>
               </div>
 
-              <div className="grid grid-3">
-                {nftsList.map((asset) => (
-                  <div key={asset.tokenId} className="asset-card">
-                    <div className="asset-header">
-                      <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
-                      <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+              {filteredAssetsList.length === 0 ? (
+                <div className="empty-state-box py-5 text-center text-muted">
+                  No assets match your search criteria.
+                </div>
+              ) : (
+                <div className="grid grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '1.25rem' }}>
+                  {filteredAssetsList.map((asset) => (
+                    <div key={asset.tokenId} className="asset-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.35rem', borderRadius: '14px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' }}>
+                      <div>
+                        <div className="asset-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                          <span className="type-pill">{asset.assetType || 'HARDWARE'}</span>
+                          <span className={`status-pill ${asset.status === 'ACTIVE' ? 'status-active' : 'status-revoked'}`}>{asset.status}</span>
+                        </div>
+                        <h4 className="asset-title" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: '#0f172a' }}>{asset.assetName || asset.name}</h4>
+                        <p className="asset-id" style={{ fontSize: '0.78rem', color: '#64748b', margin: '0.2rem 0' }}>Token ID: <code>{asset.tokenId}</code></p>
+                        <div className="asset-meta text-xs my-2" style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
+                          <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between' }}><strong>Custodian:</strong> <code style={{ fontSize: '0.72rem' }}>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-xs btn-secondary w-full mt-3"
+                        onClick={() => onViewProvenance(asset.tokenId)}
+                      >
+                        Inspect Provenance &amp; Audit
+                      </button>
                     </div>
-                    <h4 className="asset-title">{asset.assetName || asset.name}</h4>
-                    <p className="asset-id">Token ID: <code>{asset.tokenId}</code></p>
-                    <div className="asset-meta text-xs my-2">
-                      <p><strong>Legal Owner:</strong> <span className="badge badge-primary">{asset.legalOwner || 'BEL'}</span></p>
-                      <p><strong>Custodian:</strong> <code>{asset.custodian || asset.ownerDID || 'UNASSIGNED'}</code></p>
-                    </div>
-                    <button
-                      className="btn btn-xs btn-secondary w-full mt-2"
-                      onClick={() => onViewProvenance(asset.tokenId)}
-                    >
-                      Inspect Provenance &amp; Audit
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </main>
+
+      {/* Audit Log Details Modal */}
+      {isEvidenceModalOpen && selectedEvidenceLog && (
+        <ForensicEvidenceModal
+          isOpen={isEvidenceModalOpen}
+          onClose={() => {
+            setIsEvidenceModalOpen(false);
+            setSelectedEvidenceLog(null);
+          }}
+          log={selectedEvidenceLog}
+        />
+      )}
     </div>
   );
 }

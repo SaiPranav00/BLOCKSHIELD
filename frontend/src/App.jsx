@@ -4,11 +4,12 @@ import { CentralPortal } from './features/portal';
 import { AdminLanding, AdminView } from './features/admin';
 import { ManagerView } from './features/manager';
 import { AuditorView } from './features/auditor';
-import { UserView } from './features/user';
+import { UserView, UserLanding } from './features/user';
 import { CommunicationChannel } from './features/communication';
 import ProvenanceModal from './components/ProvenanceModal';
 import AuthModal from './components/AuthModal';
 import Toast from './components/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
 import { checkHealth, getNFTHistory, getAllDIDs, getAllNFTs, getAuditLogs, getMessages } from './services/api';
 import './App.css';
 
@@ -16,28 +17,99 @@ function App() {
   // Auto-detect port assignment for dedicated role hosting:
   // Port 5174 -> Admin Landing Page, Port 5175 -> Manager, Port 5176 -> Auditor, Port 5173 -> General/Portal
   const initialPort = typeof window !== 'undefined' ? (window.location.port || '5173') : '5173';
-  const initialView = initialPort === '5174' ? 'ADMIN_LANDING'
-    : initialPort === '5175' ? 'MANAGER'
-    : initialPort === '5176' ? 'AUDITOR'
-    : 'PORTAL';
-  const initialRole = initialPort === '5174' ? 'ADMIN'
-    : initialPort === '5175' ? 'MANAGER'
-    : initialPort === '5176' ? 'AUDITOR'
-    : 'USER';
-  const initialDID = initialPort === '5174' ? 'did:sih26125:ADMIN001'
-    : initialPort === '5175' ? 'did:sih26125:MANAGER001'
-    : initialPort === '5176' ? 'did:sih26125:AUDITOR001'
-    : 'did:sih26125:USER001';
 
-  // Navigation View State: 'PORTAL' (Central Landing), 'ADMIN_LANDING' (Admin Landing) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
+  // Read saved session and saved view from localStorage so refresh (Ctrl+R) keeps user in their active role & view
+  const getInitialSession = () => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem('blockshield_auth_session');
+        if (raw) return JSON.parse(raw);
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  const getInitialView = () => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('blockshield_current_view');
+        if (saved) return saved;
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  const isEnterprisePort = initialPort === '5174' || initialPort === '5175' || initialPort === '5176';
+
+  // URL & Path Routing Detection: support /enterprise, /portal, /admin, /user, etc.
+  const getPathView = () => {
+    if (typeof window === 'undefined') return null;
+    const p = window.location.pathname.toLowerCase();
+    const h = window.location.hash.toLowerCase();
+    const s = new URLSearchParams(window.location.search).get('view');
+    if (p === '/enterprise' || p === '/portal' || p === '/admin' || h === '#/enterprise' || h === '#/portal' || s === 'enterprise') {
+      return 'PORTAL';
+    }
+    if (p === '/user' || p === '/login' || p.startsWith('/user/') || h === '#/user' || h === '#user' || s === 'user') {
+      return 'USER_LANDING';
+    }
+    return null;
+  };
+
+  const initialSession = getInitialSession();
+  const savedView = getInitialView();
+  const pathView = getPathView();
+
+  // Port 5173 is the mainly exposed User Portal by default!
+  // Port 5174+ is the Enterprise Governance Portal (Admin, Manager, Auditor)
+  const defaultPublicView = isEnterprisePort ? 'PORTAL' : 'USER_LANDING';
+
+  const initialView = pathView
+    ? pathView
+    : (initialSession?.role
+      ? (savedView || initialSession.role)
+      : defaultPublicView);
+
+  const initialRole = initialSession?.role || (
+    isEnterprisePort ? 'ADMIN' : 'USER'
+  );
+
+  const initialDID = initialSession?.did || (
+    isEnterprisePort ? 'did:sih26125:ADMIN001' : 'did:sih26125:USER001'
+  );
+
+  // Navigation View State: 'USER_LANDING' (User Access Portal on port 5173), 'PORTAL' (Enterprise Governance on port 5174) or 'ADMIN' | 'MANAGER' | 'AUDITOR' | 'USER'
   const [currentView, setCurrentView] = useState(initialView);
   const [activeRole, setActiveRole] = useState(initialRole);
   const [activeDID, setActiveDID] = useState(initialDID);
 
   // Authenticated User Session
-  const [authUser, setAuthUser] = useState(null);
+  const [authUser, setAuthUser] = useState(initialSession);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingRoleTarget, setPendingRoleTarget] = useState(null);
+
+  // Helper to persist view changes across page reloads (Ctrl+R) and keep URL in sync
+  const changeView = (newView, replaceHistory = false) => {
+    setCurrentView(newView);
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.localStorage) {
+          window.localStorage.setItem('blockshield_current_view', newView);
+        }
+        let targetPath = '/';
+        if (newView === 'USER_LANDING') targetPath = isEnterprisePort ? '/user' : '/';
+        else if (newView === 'PORTAL') targetPath = isEnterprisePort ? '/' : '/enterprise';
+
+        if (window.location.pathname !== targetPath) {
+          if (replaceHistory) {
+            window.history.replaceState({ view: newView }, '', targetPath);
+          } else {
+            window.history.pushState({ view: newView }, '', targetPath);
+          }
+        }
+      }
+    } catch (_) {}
+  };
 
   // Communication Channel Drawer State
   const [showCommChannel, setShowCommChannel] = useState(false);
@@ -98,7 +170,7 @@ function App() {
     } else {
       setActiveRole(role);
       setActiveDID(authUser.did);
-      setCurrentView(role);
+      changeView(role);
     }
   };
 
@@ -107,23 +179,42 @@ function App() {
     setActiveDID(userSession.did);
     setActiveRole(userSession.role);
     setShowAuthModal(false);
-    setCurrentView(userSession.role);
+    changeView(userSession.role);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('blockshield_auth_session', JSON.stringify(userSession));
+        window.localStorage.setItem('blockshield_active_role', userSession.role);
+        window.localStorage.setItem('blockshield_active_did', userSession.did);
+      }
+    } catch (_) {}
     showToast(`Welcome ${userSession.username}! Logged into ${userSession.role} portal.`, 'success');
   };
 
   const handleLogout = () => {
+    const wasUser = !isEnterprisePort && (authUser?.role === 'USER' || activeRole === 'USER' || currentView === 'USER' || currentView === 'USER_LANDING');
     setAuthUser(null);
-    setActiveDID(initialPort === '5174' ? 'did:sih26125:ADMIN001' : 'did:sih26125:USER001');
-    setActiveRole(initialPort === '5174' ? 'ADMIN' : 'USER');
-    setCurrentView(initialPort === '5174' ? 'ADMIN_LANDING' : 'PORTAL');
+    const targetDid = wasUser ? 'did:sih26125:USER001' : 'did:sih26125:ADMIN001';
+    const targetRole = wasUser ? 'USER' : 'ADMIN';
+    const targetView = wasUser ? 'USER_LANDING' : 'PORTAL';
+    setActiveDID(targetDid);
+    setActiveRole(targetRole);
+    changeView(targetView);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('blockshield_auth_session');
+        window.localStorage.removeItem('blockshield_current_view');
+        window.localStorage.removeItem('blockshield_active_role');
+        window.localStorage.removeItem('blockshield_active_did');
+      }
+    } catch (_) {}
     showToast('Logged out successfully', 'info');
   };
 
   const handleReturnHome = () => {
-    if (initialPort === '5174') {
-      setCurrentView('ADMIN_LANDING');
+    if (!isEnterprisePort && (activeRole === 'USER' || currentView === 'USER')) {
+      changeView('USER_LANDING');
     } else {
-      setCurrentView('PORTAL');
+      changeView('PORTAL');
     }
     fetchMetrics();
   };
@@ -135,19 +226,71 @@ function App() {
 
   const checkStatus = async () => {
     const health = await checkHealth();
-    setSystemStatus({ isOnline: health.isOnline, latency: health.latency });
+    setSystemStatus({ isOnline: health.isOnline, latency: health.latency, mode: health.mode });
   };
 
   useEffect(() => {
     checkStatus();
     fetchMetrics();
     fetchUnreadCount();
+
+    // Auto-poll metrics and unread notifications every 3.5 seconds
     const interval = setInterval(() => {
       checkStatus();
+      fetchMetrics();
       fetchUnreadCount();
-    }, 12000);
-    return () => clearInterval(interval);
+    }, 3500);
+
+    // Real-time notification on any local database mutation event
+    const handleDataChange = () => {
+      fetchMetrics();
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('blockshield:data-change', handleDataChange);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('blockshield:data-change', handleDataChange);
+    };
   }, [activeRole, activeDID]);
+
+  // Handle browser popstate (Back/Forward navigation) and initial URL synchronization
+  useEffect(() => {
+    const handlePopState = (e) => {
+      const p = window.location.pathname.toLowerCase();
+      const h = window.location.hash.toLowerCase();
+      if (p === '/enterprise' || p === '/portal' || h === '#/enterprise') {
+        setCurrentView('PORTAL');
+      } else if (p === '/user' || p === '/login' || h === '#/user') {
+        setCurrentView('USER_LANDING');
+      } else if (p === '/' && !isEnterprisePort) {
+        setCurrentView('USER_LANDING');
+      } else if (p === '/' && isEnterprisePort) {
+        setCurrentView('PORTAL');
+      } else if (e.state?.view) {
+        setCurrentView(e.state.view);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isEnterprisePort]);
+
+  // Security Guard: Prevent unauthenticated access to protected workspaces
+  useEffect(() => {
+    if (!authUser && currentView !== 'PORTAL' && currentView !== 'USER_LANDING' && currentView !== 'ADMIN_LANDING') {
+      if (!isEnterprisePort && currentView === 'USER') {
+        changeView('USER_LANDING');
+      } else {
+        const fallback = isEnterprisePort ? 'PORTAL' : 'USER_LANDING';
+        changeView(fallback);
+        if (isEnterprisePort) {
+          setPendingRoleTarget(currentView);
+          setShowAuthModal(true);
+        }
+      }
+    }
+  }, [authUser, currentView, isEnterprisePort]);
 
   const handleMetricsUpdate = (newMetrics) => {
     setMetrics((prev) => ({ ...prev, ...newMetrics }));
@@ -163,12 +306,12 @@ function App() {
   };
 
   return (
-    <div className={`app-container ${currentView === 'PORTAL' ? 'portal-app-wrapper' : ''}`}>
+    <div className={`app-container ${(currentView === 'PORTAL' || currentView === 'USER_LANDING') ? 'portal-app-wrapper' : ''}`}>
       {/* Toast Alert Notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Global Header Bar (Shown when inside a workspace or dedicated page) */}
-      {currentView !== 'PORTAL' && (
+      {/* Global Header Bar (Shown when inside an active workspace) */}
+      {currentView !== 'PORTAL' && currentView !== 'USER_LANDING' && (
         <Header
           activeRole={activeRole}
           activeDID={activeDID}
@@ -178,36 +321,49 @@ function App() {
           authUser={authUser}
           onLogout={handleLogout}
           unreadCount={unreadCount}
+          onDataRefresh={fetchMetrics}
         />
       )}
 
       {/* Main Viewport */}
-      <main className="main-viewport">
-        {/* VIEW 1: Central Portal Landing Page (Port 5173 default) */}
-        {currentView === 'PORTAL' && (
-          <CentralPortal
-            metrics={metrics}
-            systemStatus={systemStatus}
-            onSelectRole={handleSelectRoleFromPortal}
-            authUser={authUser}
-            onLogout={handleLogout}
-          />
-        )}
+      <ErrorBoundary>
+        <main className="main-viewport">
+          {/* VIEW 1: Enterprise Governance Portal Landing Page (Admin, Manager, Auditor) */}
+          {currentView === 'PORTAL' && (
+            <CentralPortal
+              metrics={metrics}
+              systemStatus={systemStatus}
+              onSelectRole={handleSelectRoleFromPortal}
+              authUser={authUser}
+              onLogout={handleLogout}
+            />
+          )}
 
-        {/* VIEW 1B: Dedicated Admin Landing Page (Port 5174 default) */}
-        {currentView === 'ADMIN_LANDING' && (
-          <AdminLanding
-            metrics={metrics}
-            systemStatus={systemStatus}
-            authUser={authUser}
-            onEnterDashboard={() => setCurrentView('ADMIN')}
-            onLoginSuccess={handleLoginSuccess}
-            onOpenAuth={() => {
-              setPendingRoleTarget('ADMIN');
-              setShowAuthModal(true);
-            }}
-          />
-        )}
+          {/* VIEW 1B: Dedicated User Access Portal (Sign-in & Verification) */}
+          {currentView === 'USER_LANDING' && (
+            <UserLanding
+              metrics={metrics}
+              systemStatus={systemStatus}
+              authUser={authUser}
+              onLoginSuccess={handleLoginSuccess}
+              onLogout={handleLogout}
+            />
+          )}
+
+          {/* VIEW 1C: Dedicated Admin Landing Page (Port 5174 default) */}
+          {currentView === 'ADMIN_LANDING' && (
+            <AdminLanding
+              metrics={metrics}
+              systemStatus={systemStatus}
+              authUser={authUser}
+              onEnterDashboard={() => changeView('ADMIN')}
+              onLoginSuccess={handleLoginSuccess}
+              onOpenAuth={() => {
+                setPendingRoleTarget('ADMIN');
+                setShowAuthModal(true);
+              }}
+            />
+          )}
 
         {/* VIEW 2: Dedicated Admin Portal Page */}
         {currentView === 'ADMIN' && (
@@ -252,7 +408,8 @@ function App() {
             authUser={authUser}
           />
         )}
-      </main>
+        </main>
+      </ErrorBoundary>
 
       {/* Communication & Task Dispatch Channel Modal */}
       {showCommChannel && (
@@ -266,14 +423,16 @@ function App() {
       )}
 
       {/* Floating Chat Trigger Button - Only within authenticated role workspaces, NEVER on the landing page */}
-      {!showCommChannel && authUser && currentView !== 'PORTAL' && currentView !== 'ADMIN_LANDING' && (
+      {!showCommChannel && authUser && currentView !== 'PORTAL' && currentView !== 'USER_LANDING' && currentView !== 'ADMIN_LANDING' && (
         <button
           className="floating-chat-fab"
           onClick={() => setShowCommChannel(true)}
           title={`Open Chat & Tasks (${activeRole})`}
         >
-          <span className="fab-icon">💬</span>
-          <span className="fab-label">Group Chat</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span className="fab-label">Chat &amp; Tasks</span>
           <span className={`fab-role-pill role-${(activeRole || 'USER').toLowerCase()}`}>
             {activeRole}
           </span>

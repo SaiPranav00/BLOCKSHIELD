@@ -46,15 +46,6 @@ exports.login = async (req, res) => {
         }
 
         const rawIdent = identity.trim();
-        const stripped = rawIdent.replace(/[-\s_]/g, '').toUpperCase();
-
-        // Support demo aliases seamlessly
-        let aliasTarget = stripped;
-        if (stripped === 'ADMIN' || stripped === 'ADMIN001' || stripped === 'ADMIN1') aliasTarget = 'ADMIN001';
-        else if (stripped === 'MANAGER' || stripped === 'MANAGER001' || stripped === 'MANAGER002' || stripped === 'MANAGER1') aliasTarget = 'MANAGER001';
-        else if (stripped === 'AUDITOR' || stripped === 'AUDITOR001' || stripped === 'AUDITOR1') aliasTarget = 'AUDITOR001';
-        else if (stripped === 'USER' || stripped === 'USER001' || stripped === 'USER014' || stripped === 'USER1') aliasTarget = 'USER001';
-
         let cleanDid = rawIdent;
         if (!cleanDid.startsWith('did:sih26125:')) {
             const cleanSuffix = cleanDid.replace(/^did:[^:]+:/i, '').replace(/^did:/i, '');
@@ -62,17 +53,33 @@ exports.login = async (req, res) => {
         }
         const shortName = cleanDid.replace('did:sih26125:', '');
 
-        // Query real MongoDB User model (No hardcoded credentials)
-        const userDoc = await User.findOne({
+        // Step 1: Query exact DID or exact username first
+        let userDoc = await User.findOne({
             $or: [
-                { username: { $regex: new RegExp(`^${aliasTarget}$`, 'i') } },
-                { did: { $regex: new RegExp(`^did:sih26125:${aliasTarget}$`, 'i') } },
                 { did: cleanDid },
                 { username: shortName },
-                { username: rawIdent },
-                { username: { $regex: new RegExp(`^${stripped}$`, 'i') } }
+                { username: rawIdent }
             ]
         });
+
+        // Step 2: Only if no exact match exists, check demo aliases
+        if (!userDoc) {
+            const stripped = rawIdent.replace(/[-\s_]/g, '').toUpperCase();
+            let aliasTarget = null;
+            if (stripped === 'ADMIN' || stripped === 'ADMIN001' || stripped === 'ADMIN1') aliasTarget = 'ADMIN001';
+            else if (stripped === 'MANAGER' || stripped === 'MANAGER001' || stripped === 'MANAGER002' || stripped === 'MANAGER1') aliasTarget = 'MANAGER001';
+            else if (stripped === 'AUDITOR' || stripped === 'AUDITOR001' || stripped === 'AUDITOR1') aliasTarget = 'AUDITOR001';
+            else if (stripped === 'USER' || stripped === 'USER001' || stripped === 'USER014' || stripped === 'USER1') aliasTarget = 'USER001';
+
+            if (aliasTarget) {
+                userDoc = await User.findOne({
+                    $or: [
+                        { username: { $regex: new RegExp(`^${aliasTarget}$`, 'i') } },
+                        { did: { $regex: new RegExp(`^did:sih26125:${aliasTarget}$`, 'i') } }
+                    ]
+                });
+            }
+        }
 
         if (userDoc) {
             cleanDid = userDoc.did;
@@ -163,6 +170,43 @@ exports.registerUser = async (req, res) => {
             cleanDid = `did:sih26125:${cleanSuffix}`;
         }
         const shortName = cleanDid.replace('did:sih26125:', '');
+
+        const RESERVED_USERNAMES = [
+            'ADMIN', 'ADMIN001', 'ADMIN1',
+            'MANAGER', 'MANAGER001', 'MANAGER1',
+            'AUDITOR', 'AUDITOR001', 'AUDITOR1',
+            'USER', 'USER001', 'USER1',
+            'N123456'
+        ];
+
+        if (RESERVED_USERNAMES.includes(shortName.toUpperCase()) || RESERVED_USERNAMES.includes(rawInput.toUpperCase())) {
+            return res.status(400).json({
+                success: false,
+                error: `Username '${shortName}' is a reserved system identity. Please choose a unique personal or organizational username.`
+            });
+        }
+
+        const existingUser = await User.findOne({
+            $or: [
+                { did: cleanDid },
+                { username: shortName }
+            ]
+        });
+
+        if (existingUser) {
+            if (existingUser.status === 'PENDING_APPROVAL') {
+                return res.status(400).json({
+                    success: false,
+                    error: `An account registration for '${shortName}' (${cleanDid}) has already been submitted and is currently awaiting manual Administrator approval.`
+                });
+            }
+            if (existingUser.status === 'ACTIVE') {
+                return res.status(400).json({
+                    success: false,
+                    error: `Account '${cleanDid}' is already registered and active. Please proceed to sign in.`
+                });
+            }
+        }
 
         // Enterprise governance: Admin is sole authority creating accounts
         const accountStatus = 'PENDING_APPROVAL';
