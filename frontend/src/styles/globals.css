@@ -1348,11 +1348,14 @@ a {
   color: #17364e;
   font-size: 0.72rem;
   font-family: var(--mono);
-  padding: 0.22rem 0.55rem;
+  padding: 0.25rem 0.55rem;
   border-radius: 4px;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
   display: inline-block;
   letter-spacing: 0.02em;
+  line-height: 1.35;
 }
 .result-pill { font-size: 0.72rem; font-family: var(--mono); font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; }
 .res-allowed { background: #e8f3ed; color: #277b65; }
@@ -1361,12 +1364,15 @@ a {
   font-size: 0.72rem;
   font-family: var(--mono);
   font-weight: 700;
-  padding: 0.22rem 0.55rem;
+  padding: 0.25rem 0.55rem;
   border-radius: 4px;
   background: #e8f2fe;
   color: #087fc1;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
   display: inline-block;
+  line-height: 1.35;
 }
 
 /* Modals */
@@ -2614,6 +2620,25 @@ code {
   vertical-align: middle;
   word-wrap: break-word;
   overflow: hidden;
+}
+
+.audit-table-fit td.audit-action-td,
+.audit-action-td {
+  overflow: visible !important;
+  white-space: normal !important;
+  word-break: normal !important;
+}
+
+.audit-action-pill {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  display: inline-block !important;
+  line-height: 1.35 !important;
+  padding: 0.28rem 0.65rem !important;
+  text-align: left !important;
+  font-size: 0.73rem !important;
+  max-width: 100% !important;
 }
 
 .audit-table-fit th {

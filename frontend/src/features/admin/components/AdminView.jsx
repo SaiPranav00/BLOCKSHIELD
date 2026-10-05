@@ -684,17 +684,17 @@ export default function AdminView({
           <div className="admin-profile-row">
             <div className="admin-profile-avatar-wrap">
               <img
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces"
-                alt="Priya Nandakumar"
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"
+                alt="Rajesh Verma"
                 className="admin-profile-avatar-img"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
-              <span className="admin-profile-avatar-fallback">PN</span>
+              <span className="admin-profile-avatar-fallback">RV</span>
             </div>
             <div className="admin-profile-info">
-              <span className="admin-profile-name">{authUser?.username || 'Priya Nandakumar'}</span>
+              <span className="admin-profile-name">{authUser?.username || 'Rajesh Verma'}</span>
               <span className="admin-profile-status">Authenticated</span>
             </div>
           </div>
@@ -2573,13 +2573,13 @@ export default function AdminView({
               <div className="table-responsive-fit">
                 <table className="data-table audit-table-fit">
                   <colgroup>
-                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '22%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '10%' }} />
                     <col style={{ width: '14%' }} />
-                    <col style={{ width: '13%' }} />
-                    <col style={{ width: '17%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '16%' }} />
-                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '12%' }} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -2624,8 +2624,8 @@ export default function AdminView({
                                 {cat.badge}
                               </span>
                             </td>
-                            <td style={{ whiteSpace: 'nowrap' }}>
-                              <span className="action-pill" style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                            <td className="audit-action-td">
+                              <span className="action-pill audit-action-pill">
                                 {(log.action || '').replace(/_/g, ' ')}
                               </span>
                             </td>

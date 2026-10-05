@@ -49,7 +49,7 @@ export default function CentralPortal({
     },
     {
       id: 'AUDITOR',
-      title: 'Compliance Auditor',
+      title: 'Auditor',
       desc: 'Forensic evidence review, cryptographic audit verification, and regulatory compliance inspection.',
       isPrimaryBtn: false,
       iconBgClass: 'icon-bg-auditor',

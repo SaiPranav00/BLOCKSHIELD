@@ -42,55 +42,47 @@ export default function UserView({
   const [reqDepartment, setReqDepartment] = useState('Avionics Division');
   const [submittingAssetRequest, setSubmittingAssetRequest] = useState(false);
 
-  // Available Bharat Electronics Limited Hardware Assets (No quantity or availability count shown)
+  // Available Bharat Electronics Limited Assets (No quantity or availability count shown)
   const PROVIDED_BEL_ASSETS = [
     {
       name: 'Digital Oscilloscope',
       tag: 'BEL-DSO-2000',
       desc: 'Electronic signal measurement',
-      icon: '📊',
     },
     {
       name: 'Spectrum Analyzer',
       tag: 'BEL-SPA-440',
       desc: 'Frequency-domain signal analysis',
-      icon: '📡',
     },
     {
       name: 'Secure Communication Device',
       tag: 'BEL-SCD-0106',
       desc: 'Secure voice/data communication equipment',
-      icon: '📻',
     },
     {
       name: 'Network Security Appliance',
       tag: 'BEL-NSA-0107',
       desc: 'Controlled network/security infrastructure',
-      icon: '🛡️',
     },
     {
       name: 'Embedded Development Kit',
       tag: 'BEL-EDK-0108',
       desc: 'Hardware used for firmware/prototype development',
-      icon: '💻',
     },
     {
       name: 'Thermal Imaging Camera',
       tag: 'BEL-TIC-0109',
       desc: 'Inspection and thermal analysis',
-      icon: '📷',
     },
     {
       name: 'Radar Signal Processor (RSP-3000)',
       tag: 'BEL-RSP-3000',
       desc: 'Tactical radar target tracking & RF processing',
-      icon: '🛰️',
     },
     {
       name: 'IFF Transponder Cryptochip',
       tag: 'BEL-IFF-9921',
       desc: 'Identification Friend or Foe secure cryptochip',
-      icon: '🔒',
     },
   ];
 
@@ -228,7 +220,7 @@ export default function UserView({
   const handleAssetRequestSubmit = async (e) => {
     e.preventDefault();
     if (!reqAssetName) {
-      return notify('Please select a hardware equipment to request.', 'error');
+      return notify('Please select an equipment to request.', 'error');
     }
     if (!reqPurpose.trim()) {
       return notify('Please state the operational justification or project purpose.', 'error');
@@ -397,22 +389,22 @@ export default function UserView({
           </nav>
         </div>
 
-        {/* Sidebar Footer: Jordan Lee / User Session */}
+        {/* Sidebar Footer: Arjun Sharma / User Session */}
         <div className="admin-sidebar-footer">
           <div className="admin-profile-row">
             <div className="admin-profile-avatar-wrap">
               <img
                 src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces"
-                alt="Jordan Lee"
+                alt="Arjun Sharma"
                 className="admin-profile-avatar-img"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
-              <span className="admin-profile-avatar-fallback">JL</span>
+              <span className="admin-profile-avatar-fallback">AS</span>
             </div>
             <div className="admin-profile-info">
-              <span className="admin-profile-name">{authUser?.username || 'Jordan Lee'}</span>
+              <span className="admin-profile-name">{authUser?.username || 'Arjun Sharma'}</span>
               <span className="admin-profile-status">Authenticated</span>
             </div>
           </div>
@@ -840,9 +832,9 @@ export default function UserView({
             <div className="glass-card">
               <div className="flex-between card-header-row mb-3">
                 <div>
-                  <h3 className="card-title">Request Hardware Asset from Operations Manager</h3>
+                  <h3 className="card-title">Request Asset from Operations Manager</h3>
                   <p className="text-xs text-muted">
-                    Select from Bharat Electronics Limited defence hardware assets to request custodial allocation from the Operations Manager.
+                    Select from Bharat Electronics Limited equipment catalogue to request custodial allocation from the Operations Manager.
                   </p>
                 </div>
                 <button className="btn btn-xs btn-secondary" onClick={refreshUserData}>Refresh</button>
@@ -874,8 +866,24 @@ export default function UserView({
                         }}
                       >
                         <div>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: isSelected ? '#dbeafe' : '#f1f5f9',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: isSelected ? '#1d4ed8' : '#475569'
+                            }}>
+                              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                                <line x1="6" y1="6" x2="6.01" y2="6"/>
+                                <line x1="6" y1="18" x2="6.01" y2="18"/>
+                              </svg>
+                            </div>
                             <span style={{
                               fontSize: '0.68rem',
                               fontFamily: 'var(--mono)',

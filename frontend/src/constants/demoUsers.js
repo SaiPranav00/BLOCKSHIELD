@@ -3,7 +3,7 @@ export const DEMO_USERS = [
   {
     id: 'ADMIN001',
     username: 'ADMIN001',
-    displayName: 'Marcus Chen',
+    displayName: 'Rajesh Verma',
     role: 'ADMIN',
     did: 'did:sih26125:ADMIN001',
     password: 'password123',
@@ -16,7 +16,7 @@ export const DEMO_USERS = [
   {
     id: 'MANAGER001',
     username: 'MANAGER001',
-    displayName: 'Elena Vance',
+    displayName: 'Ananya Sharma',
     role: 'MANAGER',
     did: 'did:sih26125:MANAGER001',
     password: 'password123',
@@ -42,7 +42,7 @@ export const DEMO_USERS = [
   {
     id: 'USER001',
     username: 'USER001',
-    displayName: 'Jordan Lee',
+    displayName: 'Arjun Sharma',
     role: 'USER',
     did: 'did:sih26125:USER001',
     password: 'password123',

@@ -375,22 +375,22 @@ export default function ManagerView({
           </nav>
         </div>
 
-        {/* Sidebar Footer: Daniel Foster / Manager Session */}
+        {/* Sidebar Footer: Ananya Sharma / Manager Session */}
         <div className="admin-sidebar-footer">
           <div className="admin-profile-row">
             <div className="admin-profile-avatar-wrap">
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
-                alt="Daniel Foster"
+                src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=faces"
+                alt="Ananya Sharma"
                 className="admin-profile-avatar-img"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
-              <span className="admin-profile-avatar-fallback">DF</span>
+              <span className="admin-profile-avatar-fallback">AS</span>
             </div>
             <div className="admin-profile-info">
-              <span className="admin-profile-name">{authUser?.username || 'Daniel Foster'}</span>
+              <span className="admin-profile-name">{authUser?.username || 'Ananya Sharma'}</span>
               <span className="admin-profile-status">Authenticated</span>
             </div>
           </div>
@@ -1088,13 +1088,13 @@ export default function ManagerView({
               <div className="table-responsive-fit">
                 <table className="data-table audit-table-fit">
                   <colgroup>
-                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '22%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '10%' }} />
                     <col style={{ width: '14%' }} />
-                    <col style={{ width: '13%' }} />
-                    <col style={{ width: '17%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '16%' }} />
-                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '12%' }} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -1139,8 +1139,8 @@ export default function ManagerView({
                                 {cat.badge}
                               </span>
                             </td>
-                            <td style={{ whiteSpace: 'nowrap' }}>
-                              <span className="action-pill" style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                            <td className="audit-action-td">
+                              <span className="action-pill audit-action-pill">
                                 {(log.action || '').replace(/_/g, ' ')}
                               </span>
                             </td>

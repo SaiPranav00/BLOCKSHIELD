@@ -94,7 +94,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
   // Derive forensic telemetry data with robust fallback chains
   const who = {
     actorDID: log?.fiveWs?.who?.actorDID || log?.actorDID || 'did:sih26125:ANONYMOUS',
-    actorName: log?.fiveWs?.who?.actorName || log?.actorName || (log?.actorDID?.includes('ADMIN') ? 'Marcus Chen' : log?.actorDID?.includes('MANAGER') ? 'Elena Vance' : log?.actorDID?.includes('AUDITOR') ? 'Priya Nair' : 'Vikram Rao'),
+    actorName: log?.fiveWs?.who?.actorName || log?.actorName || (log?.actorDID?.includes('ADMIN') ? 'Rajesh Verma' : log?.actorDID?.includes('MANAGER') ? 'Ananya Sharma' : log?.actorDID?.includes('AUDITOR') ? 'Priya Nair' : 'Arjun Sharma'),
     actorRole: log?.fiveWs?.who?.actorRole || log?.actorRole || 'USER',
     department: log?.fiveWs?.who?.department || log?.actorDepartment || (log?.actorRole === 'ADMIN' ? 'Executive Governance' : log?.actorRole === 'MANAGER' ? 'R&D Operations' : log?.actorRole === 'AUDITOR' ? 'Compliance & Audit' : 'Radar Systems Division'),
     clearance: log?.fiveWs?.who?.clearance || log?.actorClearance || (log?.actorRole === 'ADMIN' ? 'Level 5 (Root Sovereign Authority)' : log?.actorRole === 'MANAGER' ? 'Level 4 (Departmental Signoff)' : log?.actorRole === 'AUDITOR' ? 'Level 4 (Regulatory Auditor)' : 'Level 3 (Operational Custodian)')
@@ -360,7 +360,7 @@ function ForensicEvidenceModalContent({ log, onClose }) {
                     Operation &amp; Target
                   </span>
                 </div>
-                <span className="action-pill" style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>{(what.action || '').replace(/_/g, ' ')}</span>
+                <span className="action-pill audit-action-pill" style={{ fontSize: '0.72rem', whiteSpace: 'normal', wordBreak: 'break-word', display: 'inline-block', lineHeight: 1.35 }}>{(what.action || '').replace(/_/g, ' ')}</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.78rem' }}>

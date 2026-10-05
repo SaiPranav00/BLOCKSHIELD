@@ -15,9 +15,36 @@
  */
 
 const STORAGE_KEY_PREFIX = 'blockshield_local_db_';
-const DB_VERSION = 'v6';
+const DB_VERSION = 'v8';
 
 const getKey = (collection) => `${STORAGE_KEY_PREFIX}${DB_VERSION}_${collection}`;
+
+// Helper: Normalize and enforce authentic Indian names for all account usernames
+export function normalizeIndianIdentity(user) {
+  if (!user) return user;
+  const username = (user.username || '').toUpperCase();
+  const did = user.did || '';
+  let updatedName = user.name;
+
+  if (username === 'ADMIN001' || did === 'did:sih26125:ADMIN001' || updatedName === 'Marcus Chen') {
+    updatedName = 'Rajesh Verma';
+  } else if (username === 'MANAGER001' || did === 'did:sih26125:MANAGER001' || updatedName === 'Elena Vance' || updatedName === 'Daniel Foster') {
+    updatedName = 'Ananya Sharma';
+  } else if (username === 'USER001' || did === 'did:sih26125:USER001' || updatedName === 'Jordan Lee') {
+    updatedName = 'Arjun Sharma';
+  } else if (username === 'AUDITOR001' || did === 'did:sih26125:AUDITOR001') {
+    updatedName = 'Priya Nair';
+  } else if (username === 'N123456' || did === 'did:sih26125:N123456') {
+    updatedName = 'Vikram Rao';
+  } else if (username === 'SNEHA_ROY' || did === 'did:sih26125:SNEHA_ROY') {
+    updatedName = 'Sneha Roy';
+  }
+
+  return {
+    ...user,
+    name: updatedName
+  };
+}
 
 // Helper: Secure Random Hex
 const randomHex = (length = 32) => {
@@ -75,7 +102,12 @@ const storageAdapter = {
 function getCollection(name) {
   try {
     const raw = storageAdapter.getItem(getKey(name));
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (name === 'users' && Array.isArray(parsed)) {
+      return parsed.map(normalizeIndianIdentity);
+    }
+    return parsed;
   } catch (err) {
     console.error(`[LocalDB] Error reading collection ${name}:`, err);
     return null;
@@ -91,11 +123,116 @@ export function notifyDataChange(detail = {}) {
   }
 }
 
-// Helper to save collection and broadcast state change
+// ─── Cross-Tab & Cross-Port Synchronizer Engine ─────────────────────────────
+let broadcastChannel = null;
+if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  try {
+    broadcastChannel = new BroadcastChannel('blockshield_bus');
+    broadcastChannel.onmessage = (event) => {
+      if (event.data?.type === 'SYNC') {
+        notifyDataChange(event.data.detail);
+      }
+    };
+  } catch (_) {}
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith(STORAGE_KEY_PREFIX)) {
+      notifyDataChange({ storageKey: e.key });
+    }
+  });
+}
+
+let lastLocalSyncTime = 0;
+let isSyncing = false;
+
+async function pushStateToServer(collectionName, data) {
+  if (typeof window === 'undefined' || !window.fetch) return;
+  try {
+    const res = await fetch('/api/sync-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [collectionName]: data })
+    });
+    if (res.ok) {
+      const resp = await res.json();
+      if (resp && resp.timestamp) {
+        lastLocalSyncTime = resp.timestamp;
+      }
+    }
+  } catch (_) {}
+}
+
+export async function pullStateFromServer(force = false) {
+  if (typeof window === 'undefined' || !window.fetch || isSyncing) return;
+  try {
+    isSyncing = true;
+    const res = await fetch('/api/sync-state');
+    if (!res.ok) return;
+    const serverState = await res.json();
+    if (!serverState || !serverState._syncTimestamp) return;
+
+    if (force || serverState._syncTimestamp > lastLocalSyncTime) {
+      let changed = false;
+      const collections = ['users', 'nfts', 'audit_logs', 'transfer_requests', 'message_threads', 'nft_history'];
+      for (const col of collections) {
+        if (serverState[col]) {
+          const key = getKey(col);
+          const currentVal = storageAdapter.getItem(key);
+          const incomingVal = JSON.stringify(serverState[col]);
+          if (currentVal !== incomingVal) {
+            storageAdapter.setItem(key, incomingVal);
+            changed = true;
+          }
+        }
+      }
+      lastLocalSyncTime = serverState._syncTimestamp;
+      if (changed) {
+        notifyDataChange({ source: 'cross-port-sync' });
+      }
+    }
+  } catch (_) {}
+  finally {
+    isSyncing = false;
+  }
+}
+
+// Auto-initialize background synchronization
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    pullStateFromServer(true);
+  }, 100);
+
+  // Poll for changes from other port every 1200ms
+  setInterval(() => {
+    pullStateFromServer();
+  }, 1200);
+
+  // Trigger sync on tab focus or visibility change
+  window.addEventListener('focus', () => pullStateFromServer());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      pullStateFromServer();
+    }
+  });
+}
+
+// Helper to save collection and broadcast state change across all tabs and ports
 function saveCollection(name, data) {
   try {
-    storageAdapter.setItem(getKey(name), JSON.stringify(data));
+    let toSave = data;
+    if (name === 'users' && Array.isArray(data)) {
+      toSave = data.map(normalizeIndianIdentity);
+    }
+    storageAdapter.setItem(getKey(name), JSON.stringify(toSave));
     notifyDataChange({ collection: name });
+    if (broadcastChannel) {
+      try {
+        broadcastChannel.postMessage({ type: 'SYNC', detail: { collection: name } });
+      } catch (_) {}
+    }
+    pushStateToServer(name, toSave);
   } catch (err) {
     console.error(`[LocalDB] Error saving collection ${name}:`, err);
   }
@@ -106,7 +243,7 @@ const SEED_USERS = [
   {
     did: 'did:sih26125:ADMIN001',
     username: 'ADMIN001',
-    name: 'Marcus Chen',
+    name: 'Rajesh Verma',
     role: 'ADMIN',
     password: 'password123',
     status: 'ACTIVE',
@@ -122,7 +259,7 @@ const SEED_USERS = [
   {
     did: 'did:sih26125:MANAGER001',
     username: 'MANAGER001',
-    name: 'Elena Vance',
+    name: 'Ananya Sharma',
     role: 'MANAGER',
     password: 'password123',
     status: 'ACTIVE',
@@ -154,7 +291,7 @@ const SEED_USERS = [
   {
     did: 'did:sih26125:USER001',
     username: 'USER001',
-    name: 'Jordan Lee',
+    name: 'Arjun Sharma',
     role: 'USER',
     password: 'password123',
     status: 'ACTIVE',
@@ -550,7 +687,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1040,
     txId: '0x9a8f27b401c3d9e87123aa45bf67cc89d1234567890abcdef1234567890abcde',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'SYSTEM_BOOTSTRAP',
     resourceId: 'BLOCKSHIELD-ROOT',
@@ -573,7 +710,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1041,
     txId: '0x7e10b42c98a7612f0099887766554433221100ffeeddccbbaa99887766554433',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'CREATE_DID',
     resourceId: 'did:sih26125:ADMIN001',
@@ -596,14 +733,14 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1042,
     txId: '0x3c21a4f9810b4de21782bc34df987110e543210987fedcba0987654321fedcba',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'CREATE_DID',
     resourceId: 'did:sih26125:MANAGER001',
     result: 'ALLOWED',
     policyRule: 'BEL-DID-ISSUANCE-POLICY-01',
     timestamp: String(Math.floor((Date.now() - 86400000 * 8) / 1000)),
-    details: 'Asset Operations Manager Elena Vance (did:sih26125:MANAGER001) provisioned in R&D Operations department. Credentials verified via Government ID (GOV-IND-4421). Delegated approval authority over hardware allocations.',
+    details: 'Asset Operations Manager Ananya Sharma (did:sih26125:MANAGER001) provisioned in R&D Operations department. Credentials verified via Government ID (GOV-IND-4421). Delegated approval authority over hardware allocations.',
     clientMetadata: {
       gateway: 'BEL Sovereign Cryptographic Gateway (Bangalore HQ Node 01)',
       channel: 'mychannel',
@@ -619,14 +756,14 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1043,
     txId: '0xbb88aa223344556677889900aabbccddeeff00112233445566778899aabbccdd',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'CREATE_DID',
     resourceId: 'did:sih26125:AUDITOR001',
     result: 'ALLOWED',
     policyRule: 'BEL-DID-ISSUANCE-POLICY-01',
     timestamp: String(Math.floor((Date.now() - 86400000 * 7.5) / 1000)),
-    details: 'Compliance Auditor Priya Nair (did:sih26125:AUDITOR001) provisioned with read-only verification rights for asset custody and provenance records.',
+    details: 'Auditor Priya Nair (did:sih26125:AUDITOR001) provisioned with read-only verification rights for asset custody and provenance records.',
     clientMetadata: {
       gateway: 'BEL Sovereign Cryptographic Gateway (Bangalore HQ Node 01)',
       channel: 'mychannel',
@@ -642,7 +779,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1044,
     txId: '0x554433221100ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'MINT_NFT',
     resourceId: 'NFT-1003',
@@ -665,7 +802,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1045,
     txId: '0x99aa88bb77cc66dd55ee44ff33aa22bb11cc00dd99ee88ff77aa66bb55cc44dd',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'MINT_NFT',
     resourceId: 'NFT-1001',
@@ -688,7 +825,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1046,
     txId: '0x7e10b42c98a7612f0099887766554433221100ffeeddccbbaa99887766554433',
     actorDID: 'did:sih26125:ADMIN001',
-    actorName: 'Marcus Chen',
+    actorName: 'Rajesh Verma',
     actorRole: 'ADMIN',
     action: 'MINT_NFT',
     resourceId: 'NFT-1002',
@@ -711,7 +848,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1047,
     txId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
     actorDID: 'did:sih26125:MANAGER001',
-    actorName: 'Elena Vance',
+    actorName: 'Ananya Sharma',
     actorRole: 'MANAGER',
     action: 'ALLOCATE_NFT',
     resourceId: 'NFT-1001',
@@ -741,7 +878,7 @@ const SEED_AUDIT_LOGS = [
     result: 'ALLOWED',
     policyRule: 'BEL-CUSTODY-TRANSFER-GATEWAY',
     timestamp: String(Math.floor((Date.now() - 3600000 * 2) / 1000)),
-    details: 'Transfer request submitted for asset "RF Signal Analyzer" (NFT-1001) from Vikram Rao to Jordan Lee (USER001). Reason: Field testing handover for radar subsystem calibration.',
+    details: 'Transfer request submitted for asset "RF Signal Analyzer" (NFT-1001) from Vikram Rao to Arjun Sharma (USER001). Reason: Field testing handover for radar subsystem calibration.',
     clientMetadata: {
       gateway: 'BEL Sovereign Cryptographic Gateway (Bangalore HQ Node 01)',
       channel: 'mychannel',
@@ -757,7 +894,7 @@ const SEED_AUDIT_LOGS = [
     blockNumber: 1049,
     txId: '0xfeeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100',
     actorDID: 'did:sih26125:USER001',
-    actorName: 'Jordan Lee',
+    actorName: 'Arjun Sharma',
     actorRole: 'USER',
     action: 'ACCESS_CHECK',
     resourceId: 'VAULT-SEC-01',
@@ -783,7 +920,7 @@ const SEED_MESSAGE_THREADS = [
     category: 'GENERAL_CHAT',
     status: 'ACTIVE',
     senderDID: 'did:sih26125:ADMIN001',
-    senderName: 'Marcus Chen',
+    senderName: 'Rajesh Verma',
     senderRole: 'ADMIN',
     targetRole: 'ALL',
     title: 'Public Channel (General Broadcast)',
@@ -794,7 +931,7 @@ const SEED_MESSAGE_THREADS = [
       {
         msgId: 'msg-seed-1',
         senderDID: 'did:sih26125:ADMIN001',
-        senderName: 'Marcus Chen',
+        senderName: 'Rajesh Verma',
         senderRole: 'ADMIN',
         recipientTarget: 'EVERYONE',
         content: 'Welcome to the BLOCKSHIELD Sovereign Ledger Network. All platform members can coordinate and collaborate here.',
@@ -803,7 +940,7 @@ const SEED_MESSAGE_THREADS = [
       {
         msgId: 'msg-seed-2',
         senderDID: 'did:sih26125:MANAGER001',
-        senderName: 'Elena Vance',
+        senderName: 'Ananya Sharma',
         senderRole: 'MANAGER',
         recipientTarget: 'EVERYONE',
         content: 'Asset Operations desk online. Ready for asset allocation, verification, and transfer request reviews.',
@@ -835,7 +972,7 @@ const SEED_MESSAGE_THREADS = [
         senderName: 'Vikram Rao',
         senderRole: 'USER',
         recipientTarget: 'MANAGER',
-        content: 'Requesting asset transfer of RF Signal Analyzer (NFT-1001) to Jordan Lee (USER001) for radar subsystem testing.',
+        content: 'Requesting asset transfer of RF Signal Analyzer (NFT-1001) to Arjun Sharma (USER001) for radar subsystem testing.',
         timestamp: new Date(Date.now() - 3600000 * 2).toISOString()
       }
     ]
@@ -844,6 +981,25 @@ const SEED_MESSAGE_THREADS = [
 
 // Initialize database with seed data if empty
 export function initLocalDatabase(forceReset = false) {
+  // 1. In-place localStorage sanitization of any stale cached strings
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && (k.startsWith('blockshield_') || k.startsWith('sih_'))) {
+          let val = window.localStorage.getItem(k);
+          if (val && (val.includes('Marcus Chen') || val.includes('Elena Vance') || val.includes('Jordan Lee') || val.includes('Daniel Foster'))) {
+            val = val.replaceAll('Marcus Chen', 'Rajesh Verma')
+                     .replaceAll('Elena Vance', 'Ananya Sharma')
+                     .replaceAll('Daniel Foster', 'Ananya Sharma')
+                     .replaceAll('Jordan Lee', 'Arjun Sharma');
+            window.localStorage.setItem(k, val);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   const initKey = `${STORAGE_KEY_PREFIX}initialized_${DB_VERSION}`;
   const initialized = storageAdapter.getItem(initKey);
   if (!initialized || forceReset) {
@@ -856,6 +1012,11 @@ export function initLocalDatabase(forceReset = false) {
     storageAdapter.setItem(initKey, 'true');
     console.log(`[BlockShield Local DB] Initialized collections with seed state (${DB_VERSION}).`);
   } else {
+    // Migration sync: Ensure all users have authentic Indian names
+    const currentUsers = getCollection('users') || [];
+    const sanitizedUsers = currentUsers.map(normalizeIndianIdentity);
+    saveCollection('users', sanitizedUsers);
+
     // Migration sync: Ensure all seed NFTs exist in current storage
     const currentNFTs = getCollection('nfts') || [];
     let updated = false;
@@ -1449,7 +1610,7 @@ export const localDatabase = {
       'CREATE_DID',
       did,
       'ALLOWED',
-      `Administrator Marcus Chen issued new Decentralized Identifier (${did}) for role ${role} in department '${department}'. W3C cryptographic DID Document generated with RSA-2048 public key. Status: ACTIVE.`,
+      `Administrator Rajesh Verma issued new Decentralized Identifier (${did}) for role ${role} in department '${department}'. W3C cryptographic DID Document generated with RSA-2048 public key. Status: ACTIVE.`,
       { policyRule: 'BEL-DID-ISSUANCE-01', payload: { did, role, department, userCategory: rest.userCategory } }
     );
 
@@ -1551,7 +1712,7 @@ export const localDatabase = {
       linkedThread.messages.push({
         msgId: `msg-${Date.now()}`,
         senderDID: adminDID,
-        senderName: 'Marcus Chen',
+        senderName: 'Rajesh Verma',
         senderRole: 'ADMIN',
         recipientTarget: 'EVERYONE',
         content: `✓ ACCOUNT REGISTRATION APPROVED: Administrator approved account '${user.username}' (${user.did}) for role ${user.role}. Identity is now ACTIVE on sovereign ledger.`,
@@ -1565,7 +1726,7 @@ export const localDatabase = {
       'APPROVE_USER_REGISTRATION',
       user.did,
       'ALLOWED',
-      `Administrator Marcus Chen MANUALLY APPROVED and ACTIVATED account registration for '${user.name || user.username}' (${user.did}) requesting role ${user.role} [${user.userCategory}]. Cryptographic W3C DID document and workspace credentials confirmed on ledger.`,
+      `Administrator Rajesh Verma MANUALLY APPROVED and ACTIVATED account registration for '${user.name || user.username}' (${user.did}) requesting role ${user.role} [${user.userCategory}]. Cryptographic W3C DID document and workspace credentials confirmed on ledger.`,
       { policyRule: 'BEL-ADMIN-ACCOUNT-GOVERNANCE-01', payload: { did: user.did, role: user.role, category: user.userCategory, approvedBy: adminDID } }
     );
 
@@ -1592,7 +1753,7 @@ export const localDatabase = {
       linkedThread.messages.push({
         msgId: `msg-${Date.now()}`,
         senderDID: adminDID,
-        senderName: 'Marcus Chen',
+        senderName: 'Rajesh Verma',
         senderRole: 'ADMIN',
         recipientTarget: 'EVERYONE',
         content: `✗ ACCOUNT REGISTRATION DENIED: Administrator rejected registration request for '${user.username}' (${user.did}). Reason: ${reason}`,
@@ -1606,7 +1767,7 @@ export const localDatabase = {
       'DENY_USER_REGISTRATION',
       user.did,
       'DENIED',
-      `Administrator Marcus Chen MANUALLY REJECTED account registration for '${user.name || user.username}' (${user.did}) requesting role ${user.role}. Stated Reason: ${reason}. Access permanently blocked.`,
+      `Administrator Rajesh Verma MANUALLY REJECTED account registration for '${user.name || user.username}' (${user.did}) requesting role ${user.role}. Stated Reason: ${reason}. Access permanently blocked.`,
       { policyRule: 'BEL-ADMIN-ACCOUNT-GOVERNANCE-01', payload: { did: user.did, role: user.role, reason, deniedBy: adminDID } }
     );
 
@@ -1889,28 +2050,29 @@ export const localDatabase = {
 
     if (asset) {
       asset.status = 'TRANSFER_PENDING';
+      asset.updatedAt = new Date().toISOString();
       saveCollection('nfts', nfts);
     } else {
       // Auto-provision requested asset token under manager stewardship if not yet pre-minted
       const assetNameMatch = reason.match(/\[Asset Request:\s*([^\]]+)\]/i);
-      const provName = assetNameMatch ? assetNameMatch[1].trim() : 'Requested Defence Hardware';
+      const provName = assetNameMatch ? assetNameMatch[1].trim() : 'Requested Equipment';
       const newPlaceholderAsset = {
         tokenId,
         assetId: `BEL-${Date.now().toString().slice(-4)}`,
         assetName: provName,
-        assetType: 'HARDWARE',
+        assetType: 'EQUIPMENT',
         legalOwner: 'Bharat Electronics Limited',
         custodian: sender,
         ownerDID: sender,
         department: 'Logistics & Equipment Hub',
         location: 'Secure Logistics Vault',
-        metadata: JSON.stringify({ description: `${provName} requested for field operations`, issuer: 'Bharat Electronics Limited' }),
+        metadata: JSON.stringify({ description: `${provName} requested for operations`, issuer: 'Bharat Electronics Limited' }),
         creatorDID: sender,
         status: 'TRANSFER_PENDING',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      nfts.push(newPlaceholderAsset);
+      nfts.unshift(newPlaceholderAsset);
       saveCollection('nfts', nfts);
       asset = newPlaceholderAsset;
     }
@@ -2025,7 +2187,7 @@ export const localDatabase = {
         'APPROVE_TRANSFER_REQUEST',
         requestId,
         'ALLOWED',
-        `Manager Elena Vance approved transfer request ${requestId}. Full legal and physical custody of asset ${req.tokenId} ('${asset.assetName}') formally reassigned from ${prevCustodian} to ${req.toDID}. Status set to ACTIVE. Provenance block appended.`,
+        `Manager Ananya Sharma approved transfer request ${requestId}. Full legal and physical custody of asset ${req.tokenId} ('${asset.assetName}') formally reassigned from ${prevCustodian} to ${req.toDID}. Status set to ACTIVE. Provenance block appended.`,
         { policyRule: 'BEL-TRANSFER-APPROVAL-01', payload: { requestId, tokenId: req.tokenId, recipient: req.toDID, approverDID } }
       );
     }
@@ -2058,7 +2220,7 @@ export const localDatabase = {
       'REJECT_TRANSFER_REQUEST',
       requestId,
       'ALLOWED',
-      `Manager Elena Vance rejected transfer request ${requestId} for asset ${req.tokenId}. Reason: '${reason}'. Custody remains with ${req.fromDID}. Asset status restored to ACTIVE.`,
+      `Manager Ananya Sharma rejected transfer request ${requestId} for asset ${req.tokenId}. Reason: '${reason}'. Custody remains with ${req.fromDID}. Asset status restored to ACTIVE.`,
       { policyRule: 'BEL-TRANSFER-REJECTION-01', payload: { requestId, tokenId: req.tokenId, rejectedBy: approverDID, reason } }
     );
 
@@ -2076,7 +2238,11 @@ export const localDatabase = {
   async getTransferRequestsByDID(did) {
     await simulateLatency(10);
     const requests = getCollection('transfer_requests') || [];
-    return requests.filter(r => r.fromDID === did || r.toDID === did);
+    const targetDid = (did || '').toLowerCase();
+    return requests.filter(r =>
+      (r.fromDID || '').toLowerCase() === targetDid ||
+      (r.toDID || '').toLowerCase() === targetDid
+    );
   },
 
   // --- AUDIT LOGS ---
@@ -2226,7 +2392,7 @@ export const localDatabase = {
     thread.messages.push({
       msgId: `msg-${Date.now()}`,
       senderDID: adminDID,
-      senderName: 'Marcus Chen',
+      senderName: 'Rajesh Verma',
       senderRole: 'ADMIN',
       recipientTarget: 'EVERYONE',
       content: `[WORK DELEGATION] Assigned task to Manager (${managerDID}). Note: ${note || 'Please review and allocate asset as requested.'}`,
@@ -2239,7 +2405,7 @@ export const localDatabase = {
       'DELEGATE_TASK',
       threadId,
       'ALLOWED',
-      `Task delegation: Administrator Marcus Chen assigned review/allocation task for '${thread.title}' to Manager (${managerDID}).`,
+      `Task delegation: Administrator Rajesh Verma assigned review/allocation task for '${thread.title}' to Manager (${managerDID}).`,
       { policyRule: 'BEL-TASK-DELEGATION-02', payload: { threadId, managerDID, note } }
     );
 
