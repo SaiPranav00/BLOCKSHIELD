@@ -120,17 +120,17 @@ export default function CentralPortal({
 
           {/* Headline */}
           <h1 className="portal-headline">
-            <span className="headline-word">SECURE.</span>{' '}
-            <span className="headline-word">SIMPLE.</span>{' '}
+            <span className="headline-word">SOVEREIGN.</span>{' '}
+            <span className="headline-word">TAMPER-PROOF.</span>{' '}
             <span className="headline-word">VERIFIABLE.</span>
           </h1>
 
           {/* Subtitles */}
           <p className="portal-lead">
-            One platform for identity, access, and digital assets.
+            Enterprise Blockchain Trust Infrastructure for Defence, Technology &amp; Sovereign Operations
           </p>
           <p className="portal-sublead">
-            Blockchain-backed security for your organization.
+            One unified platform for decentralized identity (DID), zero-trust access governance, and tokenized asset custody on Hyperledger Fabric.
           </p>
 
           {/* Section divider */}

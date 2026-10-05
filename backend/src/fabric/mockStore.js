@@ -92,15 +92,10 @@ function executeMockTransaction(funcName, args) {
                 throw new Error('System policy error: Only one primary Administrator (did:sih26125:ADMIN001) is permitted.');
             }
 
-            // Sync userCredentials in access.controller
+            // Sync User model in MongoDB
             try {
-                const { getUserCredentials } = require('../controllers/access.controller');
-                const creds = getUserCredentials();
-                const userCred = creds.get(did);
-                if (userCred) {
-                    userCred.status = 'ACTIVE';
-                    userCred.role = targetRole;
-                }
+                const User = require('../models/User');
+                User.findOneAndUpdate({ did }, { status: 'ACTIVE', role: targetRole }).catch(() => {});
             } catch (e) {
                 // Ignore sync errors
             }
@@ -160,27 +155,7 @@ function executeMockTransaction(funcName, args) {
         }
 
         case 'GetAllDIDs': {
-            try {
-                const { getUserCredentials } = require('../controllers/access.controller');
-                const creds = getUserCredentials();
-                if (creds && typeof creds.entries === 'function') {
-                    for (const [did, info] of creds.entries()) {
-                        if (!mockStore.identities.has(did)) {
-                            mockStore.identities.set(did, {
-                                docType: 'identity',
-                                did,
-                                publicKey: 'RSA-2048-PUBLIC-KEY',
-                                role: (info.role || 'USER').toUpperCase(),
-                                status: info.status || 'ACTIVE',
-                                createdAt: now,
-                                updatedAt: now
-                            });
-                        }
-                    }
-                }
-            } catch (e) {
-                // Ignore sync errors
-            }
+            // Clean identity retrieval
             // Filter out any duplicate/stray ADMIN identities except did:sih26125:ADMIN001
             const allIdentities = Array.from(mockStore.identities.values());
             return allIdentities.filter(item => {

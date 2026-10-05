@@ -341,7 +341,7 @@ export default function AuditorView({
             </div>
 
             <div className="metric-number-big">
-              {auditList.length > 0 ? auditList.length.toLocaleString() : '1,284'}
+              {auditList.length.toLocaleString()}
             </div>
             <div className="metric-title-text">Recorded events</div>
             <div className="metric-sub-text">All activity retained for review</div>
@@ -364,7 +364,7 @@ export default function AuditorView({
             </div>
 
             <div className="metric-number-big">
-              {didsList.length > 0 ? didsList.length : 128}
+              {didsList.length}
             </div>
             <div className="metric-title-text">Identities</div>
             <div className="metric-sub-text">DID records in the registry</div>
@@ -388,7 +388,7 @@ export default function AuditorView({
             </div>
 
             <div className="metric-number-big">
-              {nftsList.length > 0 ? nftsList.length : 46}
+              {nftsList.length}
             </div>
             <div className="metric-title-text">Assets</div>
             <div className="metric-sub-text">Current provenance available</div>
@@ -449,12 +449,14 @@ export default function AuditorView({
                         );
                       }
 
-                      const defaultTitle = isCreate ? 'Identity created' : isAlloc ? 'Asset allocated' : 'Transfer approved';
-                      const resourceTarget = item.resourceId || 'AST-104';
-                      const actor = item.actorDID ? item.actorDID.replace(/^did:trust:/, '') : 'ADMIN-001';
-                      const timeAgo = item.timestamp && !isNaN(item.timestamp)
-                        ? `${Math.max(1, Math.floor((Date.now() / 1000 - Number(item.timestamp)) / 60))} min ago`
-                        : `${(idx + 1) * 5} min ago`;
+                      const defaultTitle = isCreate ? 'Identity created' : isAlloc ? 'Asset allocated' : (item.action || 'Ledger event');
+                      const resourceTarget = item.resourceId || item.entityId || 'Ledger';
+                      const actor = item.actorDID ? item.actorDID.replace(/^did:trust:/, '').replace(/^did:sih26125:/, '') : (item.actor || 'System');
+                      const timeAgo = item.timestamp
+                        ? (Number(item.timestamp) > 10000000000 
+                            ? new Date(Number(item.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : new Date(Number(item.timestamp) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+                        : 'Recent';
 
                       return (
                         <div key={item.eventId || idx} className="admin-activity-row">
@@ -479,77 +481,9 @@ export default function AuditorView({
                       );
                     })
                   ) : (
-                    <>
-                      {/* Row 1: Identity created */}
-                      <div className="admin-activity-row">
-                        <div className="admin-activity-left">
-                          <div className="admin-activity-circle circle-teal">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                          </div>
-                          <div className="admin-activity-content">
-                            <span className="admin-activity-title">Identity created</span>
-                            <span className="auditor-activity-id">USER-014</span>
-                            <span className="admin-activity-subtext">By ADMIN-001 · 5 min ago</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-inspect-link"
-                          onClick={() => handleFilterResource(null, 'USER-014')}
-                        >
-                          Inspect
-                        </button>
-                      </div>
-
-                      {/* Row 2: Asset allocated */}
-                      <div className="admin-activity-row">
-                        <div className="admin-activity-left">
-                          <div className="admin-activity-circle circle-blue">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                            </svg>
-                          </div>
-                          <div className="admin-activity-content">
-                            <span className="admin-activity-title">Asset allocated</span>
-                            <span className="auditor-activity-id">AST-104 &rarr; USER-014</span>
-                            <span className="admin-activity-subtext">By MANAGER-002 · 12 min ago</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-inspect-link"
-                          onClick={() => handleFilterResource(null, 'AST-104')}
-                        >
-                          Inspect
-                        </button>
-                      </div>
-
-                      {/* Row 3: Transfer approved */}
-                      <div className="admin-activity-row">
-                        <div className="admin-activity-left">
-                          <div className="admin-activity-circle circle-blue">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                          </div>
-                          <div className="admin-activity-content">
-                            <span className="admin-activity-title">Transfer approved</span>
-                            <span className="auditor-activity-id">AST-087</span>
-                            <span className="admin-activity-subtext">By MANAGER-002 · 18 min ago</span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-inspect-link"
-                          onClick={() => handleFilterResource(null, 'AST-087')}
-                        >
-                          Inspect
-                        </button>
-                      </div>
-                    </>
+                    <div className="p-3 text-center text-sm text-muted">
+                      No audit trail entries recorded yet.
+                    </div>
                   )}
                 </div>
               </div>

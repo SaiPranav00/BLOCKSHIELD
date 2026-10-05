@@ -643,13 +643,11 @@ export default function AdminView({
             </div>
 
             <div className="metric-number-big">
-              {didsList.length > 0 ? didsList.length : 128}
+              {didsList.length}
             </div>
             <div className="metric-title-text">Active identities</div>
             <div className="metric-sub-text">
-              {didsList.length > 0
-                ? `${didsList.filter(d => d.status !== 'REVOKED').length} verified on ledger`
-                : '8 verified in the last 7 days'}
+              {didsList.filter(d => d.status !== 'REVOKED').length} verified on ledger
             </div>
           </div>
 
@@ -671,13 +669,11 @@ export default function AdminView({
             </div>
 
             <div className="metric-number-big">
-              {nftsList.length > 0 ? nftsList.length : 46}
+              {nftsList.length}
             </div>
             <div className="metric-title-text">Digital assets</div>
             <div className="metric-sub-text">
-              {nftsList.length > 0
-                ? `${nftsList.filter(n => !!n.ownerDID).length} currently allocated`
-                : '12 currently allocated'}
+              {nftsList.filter(n => !!n.ownerDID).length} currently allocated
             </div>
           </div>
 
@@ -693,11 +689,11 @@ export default function AdminView({
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
               </div>
-              <span className="metric-tag-badge">30 days</span>
+              <span className="metric-tag-badge">Fabric Ledger</span>
             </div>
 
             <div className="metric-number-big">
-              {auditList.length > 0 ? auditList.length.toLocaleString() : '1,284'}
+              {auditList.length.toLocaleString()}
             </div>
             <div className="metric-title-text">Audit events</div>
             <div className="metric-sub-text">All event records retained</div>
@@ -811,98 +807,56 @@ export default function AdminView({
                 </div>
 
                 <div className="admin-activity-col">
-                  {/* Row 1: DID Registered (Teal checkmark) */}
-                  <div className="admin-activity-row">
-                    <div className="admin-activity-left">
-                      <div className="admin-activity-circle circle-teal">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </div>
-                      <div className="admin-activity-content">
-                        <span className="admin-activity-title">
-                          {auditList.find(a => (a.action || '').includes('DID'))
-                            ? `DID registered: ${auditList.find(a => (a.action || '').includes('DID')).resourceId}`
-                            : 'DID registered for Aurora Logistics'}
-                        </span>
-                        <span className="admin-activity-subtext">
-                          did:trust:aurora-ops-0148 · Registry service
-                        </span>
-                      </div>
-                    </div>
-                    <span className="admin-activity-time">09:42</span>
-                  </div>
+                  {auditList && auditList.length > 0 ? (
+                    auditList.slice(0, 4).map((item, idx) => {
+                      const actionUpper = (item.action || '').toUpperCase();
+                      const isRevoke = actionUpper.includes('REVOKE') || item.result === 'DENIED';
+                      const isCreate = actionUpper.includes('DID') || actionUpper.includes('CREATE') || actionUpper.includes('REGISTER');
+                      const isTransfer = actionUpper.includes('TRANSFER') || actionUpper.includes('ALLOC');
 
-                  {/* Row 2: Asset Allocated (Blue layers) */}
-                  <div className="admin-activity-row">
-                    <div className="admin-activity-left">
-                      <div className="admin-activity-circle circle-blue">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                          <polyline points="2 17 12 22 22 17"/>
-                          <polyline points="2 12 12 17 22 12"/>
-                        </svg>
-                      </div>
-                      <div className="admin-activity-content">
-                        <span className="admin-activity-title">
-                          {auditList.find(a => (a.action || '').includes('ALLOC'))
-                            ? `Asset credential allocated: ${auditList.find(a => (a.action || '').includes('ALLOC')).resourceId}`
-                            : 'Asset credential allocated to Northstar Health'}
-                        </span>
-                        <span className="admin-activity-subtext">
-                          Asset AC-2025-041 · Allocation service
-                        </span>
-                      </div>
-                    </div>
-                    <span className="admin-activity-time">09:17</span>
-                  </div>
+                      const circleClass = isRevoke ? 'circle-red' : isCreate ? 'circle-teal' : isTransfer ? 'circle-indigo' : 'circle-blue';
+                      
+                      let timeStr = 'Recent';
+                      if (item.timestamp) {
+                        const tsNum = Number(item.timestamp);
+                        const dateObj = tsNum > 10000000000 ? new Date(tsNum) : new Date(tsNum * 1000);
+                        timeStr = isNaN(dateObj.getTime()) ? 'Recent' : dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      }
 
-                  {/* Row 3: Ownership transfer approved (Indigo 4-way arrows) */}
-                  <div className="admin-activity-row">
-                    <div className="admin-activity-left">
-                      <div className="admin-activity-circle circle-indigo">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="16 3 21 3 21 8"/>
-                          <line x1="4" y1="20" x2="21" y2="3"/>
-                          <polyline points="21 16 21 21 16 21"/>
-                          <line x1="15" y1="15" x2="21" y2="21"/>
-                          <polyline points="4 8 4 3 9 3"/>
-                          <line x1="9" y1="9" x2="4" y2="3"/>
-                        </svg>
-                      </div>
-                      <div className="admin-activity-content">
-                        <span className="admin-activity-title">
-                          Ownership transfer approved
-                        </span>
-                        <span className="admin-activity-subtext">
-                          Asset AC-2025-018 · Meridian Works &rarr; Kestrel Labs
-                        </span>
-                      </div>
+                      return (
+                        <div key={item.eventId || item.txId || idx} className="admin-activity-row">
+                          <div className="admin-activity-left">
+                            <div className={`admin-activity-circle ${circleClass}`}>
+                              {isRevoke ? (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                  <line x1="9.5" y1="9.5" x2="14.5" y2="14.5"/>
+                                  <line x1="14.5" y1="9.5" x2="9.5" y2="14.5"/>
+                                </svg>
+                              ) : (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              )}
+                            </div>
+                            <div className="admin-activity-content">
+                              <span className="admin-activity-title">
+                                {item.action || 'LEDGER_TRANSACTION'}
+                              </span>
+                              <span className="admin-activity-subtext">
+                                {item.resourceId ? `Resource: ${item.resourceId}` : ''} {item.actorDID ? `· ${item.actorDID}` : ''}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="admin-activity-time">{timeStr}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-3 text-center text-sm text-muted">
+                      No events recorded on ledger yet.
                     </div>
-                    <span className="admin-activity-time">08:51</span>
-                  </div>
-
-                  {/* Row 4: Compromised credential revoked (Red shield) */}
-                  <div className="admin-activity-row">
-                    <div className="admin-activity-left">
-                      <div className="admin-activity-circle circle-red">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                          <line x1="9.5" y1="9.5" x2="14.5" y2="14.5"/>
-                          <line x1="14.5" y1="9.5" x2="9.5" y2="14.5"/>
-                        </svg>
-                      </div>
-                      <div className="admin-activity-content">
-                        <span className="admin-activity-title">
-                          Compromised credential revoked
-                        </span>
-                        <span className="admin-activity-subtext">
-                          did:trust:halo-partners-003 · Security policy
-                        </span>
-                      </div>
-                    </div>
-                    <span className="admin-activity-time">08:34</span>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
