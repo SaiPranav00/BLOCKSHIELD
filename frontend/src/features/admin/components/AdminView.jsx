@@ -122,7 +122,7 @@ export default function AdminView({
   const [mintTokenId, setMintTokenId] = useState('');
   const [mintAssetName, setMintAssetName] = useState('');
   const [mintAssetType, setMintAssetType] = useState('CERTIFICATE');
-  const [mintMetadata, setMintMetadata] = useState('{"issuer":"IIT Madras","classification":"VERIFIED"}');
+  const [mintMetadata, setMintMetadata] = useState('{"issuer":"Bharat Electronics Limited","classification":"VERIFIED"}');
   const [mintTargetOwnerDid, setMintTargetOwnerDid] = useState('');
   const [mintTargetSearch, setMintTargetSearch] = useState('');
   const [isMintTargetDropdownOpen, setIsMintTargetDropdownOpen] = useState(false);
@@ -541,9 +541,17 @@ export default function AdminView({
               </div>
             </div>
 
-            <div className="admin-blockshield-subbadge">
-              <img src={blockshieldLogo} alt="BlockShield Logo" className="admin-blockshield-sublogo" />
-              <span className="admin-blockshield-tagtext">BlockShield Core</span>
+            <div className="admin-blockshield-subbadge" title="Bharat Electronics Limited • Hyperledger Fabric Administration Node">
+              <div className="admin-subbadge-logo-frame">
+                <img src={blockshieldLogo} alt="" aria-hidden="true" className="admin-blockshield-sublogo" />
+              </div>
+              <div className="admin-subbadge-content">
+                <div className="admin-subbadge-title-row">
+                  <span className="admin-blockshield-tagtext">BlockShield Core</span>
+                  <span className="admin-subbadge-status-dot" title="Governance Node Online" />
+                </div>
+                <span className="admin-subbadge-ledger">Bharat Electronics Limited • Fabric</span>
+              </div>
             </div>
           </div>
 
@@ -2084,16 +2092,6 @@ export default function AdminView({
                       </div>
                     )}
                     <p className="text-xs text-muted mt-1">Search user by DID, name or role to allocate instantly, or leave unassigned.</p>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="label">Custom JSON Metadata:</label>
-                    <textarea
-                      className="textarea"
-                      rows={3}
-                      value={mintMetadata}
-                      onChange={(e) => setMintMetadata(e.target.value)}
-                    />
                   </div>
 
                   <button type="submit" className="btn btn-primary btn-block">

@@ -319,26 +319,80 @@
 .admin-blockshield-subbadge {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.65rem;
   margin-top: 0.85rem;
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem 0.7rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.admin-blockshield-subbadge:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.admin-subbadge-logo-frame {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .admin-blockshield-sublogo {
-  height: 16px;
+  height: 18px;
   width: auto;
+  max-width: 24px;
   object-fit: contain;
 }
 
+.admin-subbadge-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.admin-subbadge-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .admin-blockshield-tagtext {
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #087fc1;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.admin-subbadge-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  flex-shrink: 0;
+}
+
+.admin-subbadge-ledger {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Sidebar Nav */

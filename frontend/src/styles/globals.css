@@ -82,9 +82,11 @@ a {
 }
 
 .brand-logo-img {
-  width: 28px;
-  height: 28px;
+  height: 40px;
+  width: auto;
+  max-width: 60px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .brand-text-wrapper {
@@ -386,8 +388,9 @@ a {
 }
 
 .portal-brand-logo {
-  height: 38px;
+  height: 48px;
   width: auto;
+  max-width: 72px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.06));
@@ -1025,7 +1028,7 @@ a {
     padding: 2.5rem 1.25rem 2rem;
   }
   .portal-brand-logo {
-    height: 30px;
+    height: 38px;
   }
 }
 
@@ -3098,31 +3101,72 @@ code {
 .auth-page-header {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  margin-bottom: 1.5rem;
+  gap: 1.15rem;
+  margin-bottom: 1.75rem;
 }
 
 .auth-page-logo {
-  width: 44px;
-  height: 44px;
+  height: 52px;
+  width: auto;
+  max-width: 78px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .auth-page-meta {
   display: flex;
   flex-direction: column;
+  gap: 0.25rem;
+}
+
+.auth-page-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .auth-page-brand {
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: #0f172a;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
-.auth-page-sub {
-  font-size: 0.78rem;
+.auth-page-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  text-transform: uppercase;
+}
+
+.auth-page-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.auth-page-org {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  letter-spacing: 0.02em;
+}
+
+.auth-page-sep {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.auth-page-motto {
+  font-size: 0.75rem;
   font-weight: 600;
   color: #64748b;
   letter-spacing: 0.02em;
@@ -3187,44 +3231,122 @@ code {
   text-transform: uppercase;
 }
 
-.auth-bel-header {
+.auth-sovereign-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  margin-bottom: 0.85rem;
+  width: fit-content;
+}
+
+.auth-sovereign-crest {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.auth-sovereign-org {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1d4ed8;
+  letter-spacing: 0.02em;
+}
+
+.auth-sovereign-sep {
+  color: #93c5fd;
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.auth-sovereign-motto {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.03em;
+}
+
+/* Modernized BlockShield Brand Badge in Workspace Sidebars */
+.admin-blockshield-subbadge {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding: 0.5rem 0.7rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+
+.admin-blockshield-subbadge:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.admin-subbadge-logo-frame {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.admin-blockshield-sublogo {
+  height: 18px;
+  width: auto;
+  max-width: 24px;
+  object-fit: contain;
+}
+
+.admin-subbadge-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 0.65rem;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid #f1f5f9;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
-.auth-bel-org {
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: #1e40af;
-  letter-spacing: 0.03em;
+.admin-subbadge-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.auth-bel-motto {
-  font-size: 0.72rem;
+.admin-blockshield-tagtext {
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
-.auth-page-org {
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: #1e40af;
-  letter-spacing: 0.03em;
+.admin-subbadge-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  flex-shrink: 0;
 }
 
-.auth-page-motto {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #475569;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-top: 2px;
+.admin-subbadge-ledger {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 

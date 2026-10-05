@@ -206,11 +206,16 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose, isPa
       {/* Header Row */}
       <div className="modal-header-row">
         <div className="modal-title-group">
-          <div className="auth-bel-header">
-            <span className="auth-bel-org">Bharat Electronics Limited</span>
-            <span className="auth-bel-motto">PROTECT THE IDENTITY AND PROVE THE AUTHORITY</span>
+          <div className="auth-sovereign-banner">
+            <div className="auth-sovereign-crest">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span className="auth-sovereign-org">Bharat Electronics Limited</span>
+            </div>
+            <span className="auth-sovereign-sep">•</span>
+            <span className="auth-sovereign-motto">Protect the Identity • Prove the Authority</span>
           </div>
-          <span className="modal-kicker-tag">BLOCKSHIELD ENTERPRISE IDENTITY &amp; ACCESS</span>
           <h2 className="auth-modal-title">
             {mode === 'login' ? `${targetRole} Workspace Access` : `Request ${targetRole} Account (Admin Creation)`}
           </h2>
@@ -855,9 +860,15 @@ export default function AuthModal({ role = 'USER', onLoginSuccess, onClose, isPa
         <div className="auth-page-header">
           <img src={blockshieldLogo} alt="BlockShield Logo" className="auth-page-logo" />
           <div className="auth-page-meta">
-            <span className="auth-page-org">Bharat Electronics Limited</span>
-            <span className="auth-page-brand">BLOCKSHIELD</span>
-            <span className="auth-page-motto">PROTECT THE IDENTITY AND PROVE THE AUTHORITY</span>
+            <div className="auth-page-brand-row">
+              <span className="auth-page-brand">BLOCKSHIELD</span>
+              <span className="auth-page-badge">Sovereign Trust Network</span>
+            </div>
+            <div className="auth-page-sub-row">
+              <span className="auth-page-org">Bharat Electronics Limited</span>
+              <span className="auth-page-sep">•</span>
+              <span className="auth-page-motto">Protect the Identity • Prove the Authority</span>
+            </div>
           </div>
         </div>
         <div className="modal-container auth-modal-box auth-page-container">

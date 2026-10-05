@@ -280,9 +280,17 @@ export default function ManagerView({
               </div>
             </div>
 
-            <div className="admin-blockshield-subbadge">
-              <img src={blockshieldLogo} alt="BlockShield Logo" className="admin-blockshield-sublogo" />
-              <span className="admin-blockshield-tagtext">BlockShield Ops</span>
+            <div className="admin-blockshield-subbadge" title="Bharat Electronics Limited • Hyperledger Fabric Operations Node">
+              <div className="admin-subbadge-logo-frame">
+                <img src={blockshieldLogo} alt="" aria-hidden="true" className="admin-blockshield-sublogo" />
+              </div>
+              <div className="admin-subbadge-content">
+                <div className="admin-subbadge-title-row">
+                  <span className="admin-blockshield-tagtext">BlockShield Operations</span>
+                  <span className="admin-subbadge-status-dot" title="Operations Node Online" />
+                </div>
+                <span className="admin-subbadge-ledger">Bharat Electronics Limited • Fabric</span>
+              </div>
             </div>
           </div>
 
